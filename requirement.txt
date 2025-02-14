@@ -1,0 +1,1 @@
+Installation SFML : brew install sfml
