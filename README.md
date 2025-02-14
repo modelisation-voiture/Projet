@@ -2,7 +2,7 @@
 
 Voici le contenu du **README.md** structuré et prêt à être copié-collé dans votre projet GitHub.  
 
-```md
+
 # Simulation de Trajectoire d’une Voiture RC
 
 ## Objectif du projet
