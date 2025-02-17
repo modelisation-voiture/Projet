@@ -1,7 +1,6 @@
 CC = g++
-CFLAGS = -Wall -Wextra -std=c++17 $(shell sdl2-config --cflags)
-LDFLAGS = $(shell sdl2-config --libs)
-
+CFLAGS = -Wall -Wextra -std=c++17 -I/opt/local/include/SDL2 -I/opt/local/include
+LDFLAGS = -L/opt/local/lib -lSDL2 -lSDL2_image
 SRC = affichage_circuit.cpp
 OBJ = $(SRC:.cpp=.o)
 EXEC = sdl_app

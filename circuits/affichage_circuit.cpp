@@ -1,8 +1,10 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <vector>
 #include <iostream>
+#include <cmath>
 
 using json = nlohmann::json;
 
@@ -13,6 +15,9 @@ class Circuit {
 private:
     SDL_Window* window;
     SDL_Renderer* renderer;
+    SDL_Texture* asphaltTexture;
+    SDL_Texture* borderTexture;
+    SDL_Texture* grassTexture;
     std::vector<std::pair<SDL_Point, SDL_Point>> borders;
     SDL_Point startPoint;
 
@@ -38,13 +43,32 @@ public:
             exit(EXIT_FAILURE);
         }
 
+        // Charger les textures
+        asphaltTexture = loadTexture("textures/asphalt.png");
+        borderTexture = loadTexture("textures/borders.png");
+        grassTexture = loadTexture("textures/grass.png");
+
         loadFromJson(jsonFile);
     }
 
     ~Circuit() {
+        SDL_DestroyTexture(asphaltTexture);
+        SDL_DestroyTexture(borderTexture);
+        SDL_DestroyTexture(grassTexture);
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         SDL_Quit();
+    }
+
+    SDL_Texture* loadTexture(const std::string& path) {
+        SDL_Surface* surface = IMG_Load(path.c_str());
+        if (!surface) {
+            std::cerr << "Erreur : Impossible de charger l'image " << path << " : " << IMG_GetError() << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_FreeSurface(surface);
+        return texture;
     }
 
     void loadFromJson(const std::string& jsonFile) {
@@ -72,6 +96,38 @@ public:
         }
     }
 
+    void drawCurve(SDL_Point p0, SDL_Point p1, SDL_Point p2, SDL_Color color) {
+        for (double t = 0; t <= 1; t += 0.01) {
+            int x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * p1.x + t * t * p2.x;
+            int y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * p1.y + t * t * p2.y;
+            SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
+            SDL_RenderDrawPoint(renderer, x, y);
+        }
+    }
+
+    void render() {
+        // Afficher le fond (herbe)
+        SDL_Rect bg = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+        SDL_RenderCopy(renderer, grassTexture, NULL, &bg);
+
+        // Dessiner les bordures courbées
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        for (size_t i = 0; i < borders.size() - 1; i++) {
+            drawCurve(borders[i].first, borders[i].second, borders[i + 1].first, {255, 255, 255});
+        }
+
+        // Dessiner l'asphalte
+        for (const auto& border : borders) {
+            SDL_Rect rect = {border.first.x, border.first.y, border.second.x - border.first.x, border.second.y - border.first.y};
+            SDL_RenderCopy(renderer, asphaltTexture, NULL, &rect);
+        }
+
+        // Dessiner le point de départ
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+        SDL_Rect startRect = {startPoint.x - 5, startPoint.y - 5, 10, 10};
+        SDL_RenderFillRect(renderer, &startRect);
+    }
+
     void run() {
         bool running = true;
         SDL_Event event;
@@ -83,20 +139,8 @@ public:
                 }
             }
 
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
-
-            // Dessiner les bordures en blanc
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            for (const auto& border : borders) {
-                SDL_RenderDrawLine(renderer, border.first.x, border.first.y, border.second.x, border.second.y);
-            }
-
-            // Dessiner le point de départ en vert
-            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-            SDL_Rect startRect = { startPoint.x - 5, startPoint.y - 5, 10, 10 };
-            SDL_RenderFillRect(renderer, &startRect);
-
+            render();
             SDL_RenderPresent(renderer);
         }
     }
