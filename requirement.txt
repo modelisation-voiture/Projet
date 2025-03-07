@@ -1,1 +1,8 @@
 Installation SFML : brew install sfml
+Installation SDL2 :  - Ubuntu : sudo apt-get update sudo apt-get install libsdl2-dev
+                     - Mac : brew install sdl2
+Installation SDL2_image : - Ubuntu : sudo apt-get install libsdl2-image-dev
+                          - Mac : brew install sdl2_image
+
+Installation nlohmann/json : - Ubuntu : sudo apt-get install nlohmann-json3-dev
+                             - Mac : brew install nlohmann-json

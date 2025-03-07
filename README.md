@@ -34,6 +34,9 @@ Dans un second temps, une simulation d’un **capteur LiDAR** sera ajoutée afin
 │── Makefile            # Compilation avec SFML
 ```
 
+## Détails
+La classe VoitureRC est l’élément central de notre projet de simulation. Elle représente l’état physique du véhicule et les interactions avec les forces appliquées. 
+
 ## Technologies utilisées
 
 - **C++** : Langage principal du projet.  
