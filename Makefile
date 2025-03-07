@@ -1,6 +1,6 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Iinclude
-LDFLAGS = -lsfml-graphics -lsfml-window -lsfml-system
+CXXFLAGS = -std=c++17 -I SFML-2.5.1/include/SFML/
+LDFLAGS = -L SFML-2.5.1/ -lsfml-graphics -lsfml-window -lsfml-system 
 SRC = src/main.cpp src/CarModel.cpp
 OBJ = $(SRC:.cpp=.o)
 TARGET = rc_simulation
