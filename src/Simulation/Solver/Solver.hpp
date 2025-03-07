@@ -1,182 +1,114 @@
 #pragma once
 
-#include <functional>
-#include <memory>
+#include <iostream>
 #include <vector>
-#include <boost/numeric/odeint.hpp>
+#include <functional>
+#include <cmath>
+
+using namespace std;
 
 namespace Simulation {
-namespace Solver {
+    namespace Solver {
 
-// Classe template générique pour résoudre différents types d'EDO
-template<typename State, typename Time = double>
+template<typename State, typename Time>
 class OdeSolver {
 public:
-    using StateType = State;
-    using TimeType = Time;
-    using SystemFunction = std::function<void(const State&, State&, Time)>;
-    using ObserverFunction = std::function<void(const State&, Time)>;
-    
-    enum class Method {
-        RK4,            // Runge-Kutta 4 (fixed step)
-        RK45,           // Runge-Kutta-Fehlberg 45 (adaptive step)
-        DormandPrince,  // Dormand-Prince 5(4) (adaptive step, meilleure précision)
-        BulirschStoer   // Bulirsch-Stoer (systèmes raides)
-    };
-    
-    OdeSolver(Method method = Method::DormandPrince) : m_method(method) {}
-    
-    // Intègre avec pas fixe et observe à chaque pas
-    void integrate_const(
-        const SystemFunction& system,
-        State& state,
-        Time start_time,
-        Time end_time,
-        Time step_size,
-        const ObserverFunction& observer = nullptr);
-    
-    // Intègre avec pas adaptatif et observe à chaque pas adapté
-    void integrate_adaptive(
-        const SystemFunction& system,
-        State& state,
-        Time start_time,
-        Time end_time,
-        Time initial_step_size,
-        const ObserverFunction& observer = nullptr);
-    
-    // Configure les tolérances pour l'intégration adaptative
-    void set_tolerances(double abs_tolerance, double rel_tolerance) {
-        m_abs_tolerance = abs_tolerance;
-        m_rel_tolerance = rel_tolerance;
+    OdeSolver(double abs_tolerance, double rel_tolerance)
+        : m_abs_tolerance(abs_tolerance), m_rel_tolerance(rel_tolerance) {}
+
+    // Implémentation de la méthode ode45
+    void solve(const function<void(const State&, State&, Time)>& system_function, State& initial_state, Time t_start, Time t_end, Time dt) {
+        Time t = t_start;
+        State y = initial_state;
+        
+        while (t < t_end) {
+            // Effectuer une étape d'intégration avec la méthode RK4
+            State y1 = y;
+            rk4_step(system_function, y, t, dt);
+
+            // Calculer l'erreur et ajuster le pas de temps
+            Time error_estimate = compute_error(y1, y);
+
+            // Si l'erreur est trop grande, on réduit le pas de temps
+            if (error_estimate > m_abs_tolerance) {
+                dt *= 0.5;
+            } else {
+                // Si l'erreur est acceptable, on peut accepter la solution
+                t += dt;
+                y = y1;
+
+                // Augmenter le pas de temps pour la prochaine étape
+                if (error_estimate < m_abs_tolerance / 10) {
+                    dt *= 2.0;
+                }
+            }
+
+            // Afficher le résultat de cette étape (si nécessaire)
+            cout << "t = " << t << ", y = ";
+            for (auto& val : y) cout << val << " ";
+            cout << endl;
+        }
     }
-    
-    // Intègre et retourne un vecteur d'états à des pas réguliers
-    std::vector<State> solve(
-        const SystemFunction& system,
-        const State& initial_state,
-        Time start_time,
-        Time end_time,
-        Time output_step_size);
 
 private:
-    Method m_method;
-    double m_abs_tolerance = 1.0e-6;
-    double m_rel_tolerance = 1.0e-6;
-    
-    // Crée un stepper approprié selon la méthode choisie
-    template<typename Stepper>
-    Stepper create_stepper();
+    double m_abs_tolerance;
+    double m_rel_tolerance;
+
+    // Méthode RK4 pour un seul pas de temps
+    void rk4_step(const function<void(const State&, State&, Time)>& system_function, State& y, Time t, Time dt) {
+        State k1 = y;
+        system_function(y, k1, t);
+        for (auto& val : k1) val *= dt;
+
+        State k2 = y;
+        for (auto& val : k2) val += 0.5 * k1[val] * dt;
+        system_function(k2, k2, t + 0.5 * dt);
+        for (auto& val : k2) val *= dt;
+
+        State k3 = y;
+        for (auto& val : k3) val += 0.5 * k2[val] * dt;
+        system_function(k3, k3, t + 0.5 * dt);
+        for (auto& val : k3) val *= dt;
+
+        State k4 = y;
+        for (auto& val : k4) val += k3[val] * dt;
+        system_function(k4, k4, t + dt);
+        for (auto& val : k4) val *= dt;
+
+        // Mise à jour de y avec la combinaison des valeurs k1, k2, k3, k4
+        for (size_t i = 0; i < y.size(); ++i) {
+            y[i] += (k1[i] + 2*k2[i] + 2*k3[i] + k4[i]) / 6;
+        }
+    }
+
+    // Méthode pour calculer l'erreur (approximative)
+    Time compute_error(const State& y1, const State& y) {
+        Time max_error = 0;
+        for (size_t i = 0; i < y.size(); ++i) {
+            max_error = std::max(max_error, std::abs(y1[i] - y[i]));
+        }
+        return max_error;
+    }
 };
 
-// Implémentation des méthodes
-
-template<typename State, typename Time>
-void OdeSolver<State, Time>::integrate_const(
-    const SystemFunction& system,
-    State& state,
-    Time start_time,
-    Time end_time,
-    Time step_size,
-    const ObserverFunction& observer) {
-    
-    using namespace boost::numeric::odeint;
-    
-    auto wrapped_system = [&system](const State& x, State& dxdt, Time t) {
-        system(x, dxdt, t);
-    };
-    
-    auto wrapped_observer = observer 
-        ? [&observer](const State& x, Time t) { observer(x, t); }
-        : [](const State&, Time) { };
-    
-    switch (m_method) {
-        case Method::RK4:
-            integrate_const(runge_kutta4<State>(), wrapped_system, state, 
-                            start_time, end_time, step_size, wrapped_observer);
-            break;
-        case Method::RK45:
-            integrate_const(runge_kutta_fehlberg78<State>(), wrapped_system, state, 
-                            start_time, end_time, step_size, wrapped_observer);
-            break;
-        case Method::DormandPrince:
-            integrate_const(runge_kutta_dopri5<State>(), wrapped_system, state, 
-                            start_time, end_time, step_size, wrapped_observer);
-            break;
-        case Method::BulirschStoer:
-            integrate_const(bulirsch_stoer<State>(), wrapped_system, state, 
-                            start_time, end_time, step_size, wrapped_observer);
-            break;
-    }
-}
-
-template<typename State, typename Time>
-void OdeSolver<State, Time>::integrate_adaptive(
-    const SystemFunction& system,
-    State& state,
-    Time start_time,
-    Time end_time,
-    Time initial_step_size,
-    const ObserverFunction& observer) {
-    
-    using namespace boost::numeric::odeint;
-    
-    auto wrapped_system = [&system](const State& x, State& dxdt, Time t) {
-        system(x, dxdt, t);
-    };
-    
-    auto wrapped_observer = observer 
-        ? [&observer](const State& x, Time t) { observer(x, t); }
-        : [](const State&, Time) { };
-    
-    switch (m_method) {
-        case Method::RK4: {
-            auto stepper = make_controlled(m_abs_tolerance, m_rel_tolerance, runge_kutta4<State>());
-            integrate_adaptive(stepper, wrapped_system, state, 
-                               start_time, end_time, initial_step_size, wrapped_observer);
-            break;
-        }
-        case Method::RK45: {
-            auto stepper = make_controlled(m_abs_tolerance, m_rel_tolerance, runge_kutta_fehlberg78<State>());
-            integrate_adaptive(stepper, wrapped_system, state, 
-                               start_time, end_time, initial_step_size, wrapped_observer);
-            break;
-        }
-        case Method::DormandPrince: {
-            auto stepper = make_controlled(m_abs_tolerance, m_rel_tolerance, runge_kutta_dopri5<State>());
-            integrate_adaptive(stepper, wrapped_system, state, 
-                               start_time, end_time, initial_step_size, wrapped_observer);
-            break;
-        }
-        case Method::BulirschStoer: {
-            auto stepper = make_controlled(m_abs_tolerance, m_rel_tolerance, bulirsch_stoer<State>());
-            integrate_adaptive(stepper, wrapped_system, state, 
-                               start_time, end_time, initial_step_size, wrapped_observer);
-            break;
-        }
-    }
-}
-
-template<typename State, typename Time>
-std::vector<State> OdeSolver<State, Time>::solve(
-    const SystemFunction& system,
-    const State& initial_state,
-    Time start_time,
-    Time end_time,
-    Time output_step_size) {
-    
-    std::vector<State> results;
-    State state = initial_state;
-    
-    // Observer qui enregistre les résultats à chaque pas
-    auto observer = [&results](const State& x, Time) {
-        results.push_back(x);
-    };
-    
-    // Intégration adaptative avec un pas initial
-    integrate_adaptive(system, state, start_time, end_time, output_step_size, observer);
-    
-    return results;
-}
-
-} // namespace Solver
+    } // namespace Modeles
 } // namespace Simulation
+
+/*int main() {
+    // Exemple d'un système simple de 2 équations différentielles : dx/dt = y, dy/dt = -x
+    auto system_function = [](const vector<double>& y, vector<double>& dydt, double t) {
+        dydt[0] = y[1];    // dx/dt = y
+        dydt[1] = -y[0];   // dy/dt = -x
+    };
+
+    vector<double> initial_state = {1.0, 0.0}; // Condition initiale (x(0) = 1, y(0) = 0)
+    double t_start = 0.0, t_end = 10.0, dt = 0.1;
+    
+    // Créer un solveur avec une tolérance absolue et relative
+    OdeSolver<vector<double>, double> solver(1e-6, 1e-6);
+    
+    // Résoudre le système
+    solver.solve(system_function, initial_state, t_start, t_end, dt);
+
+    return 0;
+}*/
