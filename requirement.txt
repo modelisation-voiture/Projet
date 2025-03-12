@@ -6,3 +6,5 @@ Installation SDL2_image : - Ubuntu : sudo apt-get install libsdl2-image-dev
 
 Installation nlohmann/json : - Ubuntu : sudo apt-get install nlohmann-json3-dev
                              - Mac : brew install nlohmann-json
+
+Installation OEDINT : - Ubuntu : sudo apt install libboost-all-dev
