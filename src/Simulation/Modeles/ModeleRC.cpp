@@ -1,6 +1,8 @@
 // ModeleRC.cpp
 #include "ModeleRC.hpp"
+#include "../Solver/Solver.hpp" 
 #include <cmath>
+#include <iostream>
 
 namespace Simulation {
 namespace Modeles {
@@ -46,34 +48,36 @@ std::vector<ModeleRC::Etat> ModeleRC::simuler(
     double t_fin, 
     double dt) {
     
-    using namespace boost::numeric::odeint;
+    std::cout << "Simulation du modèle RC de t=" << t_debut << " à t=" << t_fin << std::endl;
+    std::cout << "Contrôles: accélération=" << m_controle.acceleration 
+              << ", direction=" << (m_controle.direction * 180.0 / M_PI) << "°" << std::endl;
     
-    std::vector<Etat> etats;
-    etats.reserve(static_cast<size_t>((t_fin - t_debut) / dt) + 1);
+    // Utiliser notre propre solveur au lieu de Boost
+    Simulation::Solver::OdeSolver<Etat, double> solver(1.0e-6, 1.0e-6);
     
-    // Correction ici: utilisation d'une capture par copie de etats pour éviter le problème de const
-    auto observateur = [etats = &etats](const Etat& x, double) mutable {
-        etats->push_back(x);
+    // Créer une capture de this pour passer la fonction du système
+    auto system_function = [this](const Etat& x, Etat& dxdt, double t) {
+        this->operator()(x, dxdt, t);
     };
     
-    // Création d'une copie locale de l'état initial
-    Etat etat = etat_initial;
+    // Appeler directement notre solveur avec une copie de l'état initial
+    Etat etat_copie = etat_initial;
+    std::vector<Etat> resultats = solver.solve(system_function, etat_copie, t_debut, t_fin, dt);
     
-    // Intégration avec Runge-Kutta 4 adaptatif de Boost
-    typedef runge_kutta_dopri5<Etat> stepper_type;
+    // Afficher quelques statistiques
+    if (!resultats.empty()) {
+        const auto& dernier_etat = resultats.back();
+        std::cout << "Résultats de la simulation:" << std::endl;
+        std::cout << "  Nombre de points: " << resultats.size() << std::endl;
+        std::cout << "  Position finale: (" << dernier_etat[0] << ", " << dernier_etat[1] << ")" << std::endl;
+        std::cout << "  Orientation finale: " << (dernier_etat[2] * 180.0 / M_PI) << "°" << std::endl;
+        std::cout << "  Vitesse finale: " << dernier_etat[3] << " m/s" << std::endl;
+        std::cout << "  Vitesse angulaire finale: " << dernier_etat[4] << " rad/s" << std::endl;
+    } else {
+        std::cerr << "Erreur: Aucun résultat obtenu de la simulation!" << std::endl;
+    }
     
-    // Intégration avec pas adaptatif et contrôle d'erreur
-    integrate_adaptive(
-        make_controlled<stepper_type>(1.0e-6, 1.0e-6),  // tolérance absolue et relative
-        *this,
-        etat,  // Utilisation de la copie locale
-        t_debut,
-        t_fin,
-        dt,
-        observateur
-    );
-    
-    return etats;
+    return resultats;
 }
 
 double ModeleRC::calculerForcePropulsion(double vitesse) const {
