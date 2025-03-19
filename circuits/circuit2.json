@@ -1,0 +1,13 @@
+{
+    "name": "Circuit 2",
+    "centerX": 400,
+    "centerY": 300,
+    "radiusX": 200,
+    "radiusY": 100,
+    "trackWidth": 40,
+    "textures": {
+        "track": "../../assets/track.png",
+        "grass": "../../assets/grass.png",
+        "border": "../../assets/outer.png"
+    }
+}

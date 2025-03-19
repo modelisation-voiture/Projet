@@ -1,3 +1,4 @@
+//version simple du circuit avec les couleurs vertes et grises
 /*#include <SFML/Graphics.hpp>
 #include <vector>
 #include <cmath>
@@ -124,7 +125,7 @@ int main() {
 }
 */
 
-
+// version avec les forces et les modeles 
 /*#include <SFML/Graphics.hpp>
 #include <iostream>
 #include <vector>
@@ -269,7 +270,7 @@ int main() {
     return 0;
 }
 */
-//version ameliorée
+//version ameliorée avec les textures 
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <cmath>
@@ -416,5 +417,135 @@ int main() {
 
     return 0;
 }
+
+//version pour charger plusieurs circuits
+/*#include <SFML/Graphics.hpp>
+#include <fstream>
+#include <iostream>
+#include <nlohmann/json.hpp>  // Bibliothèque JSON
+#include <vector>
+#include <cmath>
+
+using json = nlohmann::json;
+
+// Déclaration des textures
+sf::Texture trackTexture, grassTexture, borderTexture;
+
+// Structure pour stocker les paramètres d'un circuit
+struct Circuit {
+    std::string name;
+    float centerX, centerY, radiusX, radiusY, trackWidth;
+    std::string trackTexturePath, grassTexturePath, borderTexturePath;
+};
+
+// Fonction pour charger un circuit depuis un fichier JSON
+Circuit loadCircuit(const std::string& filename) {
+    Circuit circuit;
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Erreur : Impossible d'ouvrir " << filename << std::endl;
+        exit(1);
+    }
+
+    json circuitData;
+    file >> circuitData;
+
+    circuit.name = circuitData["name"];
+    circuit.centerX = circuitData["centerX"];
+    circuit.centerY = circuitData["centerY"];
+    circuit.radiusX = circuitData["radiusX"];
+    circuit.radiusY = circuitData["radiusY"];
+    circuit.trackWidth = circuitData["trackWidth"];
+    circuit.trackTexturePath = circuitData["textures"]["track"];
+    circuit.grassTexturePath = circuitData["textures"]["grass"];
+    circuit.borderTexturePath = circuitData["textures"]["border"];
+
+    return circuit;
+}
+
+// Fonction pour charger les textures du circuit
+bool loadTextures(const Circuit& circuit) {
+    if (!trackTexture.loadFromFile(circuit.trackTexturePath) ||
+        !grassTexture.loadFromFile(circuit.grassTexturePath) ||
+        !borderTexture.loadFromFile(circuit.borderTexturePath)) {
+        return false;
+    }
+    return true;
+}
+
+// Fonction pour créer la piste avec les paramètres du circuit
+sf::VertexArray createTrack(const Circuit& circuit) {
+    const int numPoints = 100;
+    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
+
+    for (int i = 0; i < numPoints; i++) {
+        float angle = (i / (float)numPoints) * 2 * M_PI;
+
+        float rX = circuit.radiusX + 30 * std::sin(3 * angle);
+        float rY = circuit.radiusY + 20 * std::cos(2 * angle);
+
+        float x1 = circuit.centerX + (rX - circuit.trackWidth) * std::cos(angle);
+        float y1 = circuit.centerY + (rY - circuit.trackWidth) * std::sin(angle);
+        
+        float x2 = circuit.centerX + (rX + circuit.trackWidth) * std::cos(angle);
+        float y2 = circuit.centerY + (rY + circuit.trackWidth) * std::sin(angle);
+
+        track[i * 2].position = sf::Vector2f(x1, y1);
+        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
+    }
+
+    return track;
+}
+
+int main() {
+    // Demander à l'utilisateur de choisir un circuit
+    std::string circuitFile;
+    std::cout << "Entrez le fichier JSON du circuit (ex: circuits/circuit1.json) : ";
+    std::cin >> circuitFile;
+
+    // Charger le circuit
+    Circuit circuit = loadCircuit(circuitFile);
+
+    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
+    window.setFramerateLimit(60);
+
+    if (!loadTextures(circuit)) {
+        std::cerr << "Erreur de chargement des textures !" << std::endl;
+        return -1;
+    }
+
+    sf::VertexArray track = createTrack(circuit);
+
+    // Charger la texture de la voiture
+    sf::Texture carTexture;
+    if (!carTexture.loadFromFile("../../assets/car.png")) {
+        return -1;
+    }
+
+    sf::Sprite carSprite;
+    carSprite.setTexture(carTexture);
+    carSprite.setScale(0.1f, 0.1f);
+    carSprite.setPosition(375, 275);
+
+    // États pour appliquer les textures
+    sf::RenderStates trackState;
+    trackState.texture = &trackTexture;
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        window.clear();
+        window.draw(track, trackState);
+        window.draw(carSprite);
+        window.display();
+    }
+
+    return 0;
+}
+*/
 
 

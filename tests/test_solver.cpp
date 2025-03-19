@@ -42,8 +42,8 @@ int main() {
     
     // Paramètres de simulation
     double t_debut = 0.0;
-    double t_fin = 1.0;
-    double dt = 0.01;
+    double t_fin = 10.0;
+    double dt = 1;
     
     // Test avec le solveur RK4 simplifié
     std::cout << "\nTest avec la méthode: Runge-Kutta 4 (RK4)" << std::endl;
@@ -58,14 +58,17 @@ int main() {
         
         modele.setControle(ctrl);
         
-        auto start = std::chrono::high_resolution_clock::now();
-        
         // Résoudre avec le solveur RK4
-        std::vector<ModeleRC::Etat> resultats;
-        solver.solve(
-            [&modele](const ModeleRC::Etat& x, ModeleRC::Etat& dxdt, double t) {
-                modele(x, dxdt, t);
-            },
+        auto start = std::chrono::high_resolution_clock::now();
+
+        // Fonction lambda pour passer au solveur
+        auto system_function = [&modele](const ModeleRC::Etat& x, ModeleRC::Etat& dxdt, double t) {
+            modele(x, dxdt, t);
+        };
+
+        // Appeler solve et récupérer directement les résultats
+        std::vector<ModeleRC::Etat> resultats = solver.solve(
+            system_function,
             etat_initial,
             t_debut,
             t_fin,
@@ -86,6 +89,13 @@ int main() {
         for (size_t j = 0; j < resultats.size(); ++j) {
             const auto& etat = resultats[j];
             double t = t_debut + j * dt;
+
+            std::cout << "t=" << t 
+              << " x=" << etat[0]
+              << " y=" << etat[1]
+              << " theta=" << etat[2]
+              << " v=" << etat[3]
+              << " omega=" << etat[4] << std::endl;
             
             fichier << std::fixed << std::setprecision(6)
                     << t << ","
