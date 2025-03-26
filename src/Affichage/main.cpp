@@ -716,7 +716,7 @@ int main() {
 */
 
 //version avec les force de nadir
-
+/*
 /*
 #include <SFML/Graphics.hpp>
 #include <vector>
@@ -823,7 +823,7 @@ int main() {
 
     sf::Sprite carSprite;
     carSprite.setTexture(carTexture);
-    carSprite.setScale(0.2f, 0.2f);
+    carSprite.setScale(0.15f, 0.15f);
     carSprite.setPosition(100, 100);
 
     // États pour appliquer les textures
@@ -870,9 +870,8 @@ int main() {
 }
 */
 
+//version 2.0 force de Nadir  avec les touches clavier 
 
-//version 2.0 force de Nadir 
-/*
 #include <SFML/Graphics.hpp>
 #include "map.hpp"
 #include "voiture.hpp"
@@ -896,13 +895,19 @@ int main() {
     voiture.sprite.setScale(0.15f, 0.15f);
     voiture.sprite.setPosition(625, 300);
 
-
     // États pour appliquer les textures
     sf::RenderStates trackState, grassState;
     map.grassTexture.setRepeated(true);
     map.trackTexture.setRepeated(true);
     trackState.texture = &map.trackTexture;
     grassState.texture = &map.grassTexture;
+
+    // Variables for car control
+    float acceleration = 0.2f;  // Acceleration factor
+    float deceleration = 0.1f;  // Deceleration factor
+    float maxSpeed = 5.0f;      // Maximum speed
+    float turnSpeed = 3.0f;     // Turning speed
+    float speed = 0.0f;         // Current speed
 
     while (window.isOpen()) {
         sf::Event event;
@@ -911,10 +916,40 @@ int main() {
                 window.close();
         }
 
-        voiture.updatePosition(map);
+        // Handle user input for car control
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+            speed += acceleration;  // Accelerate
+            if (speed > maxSpeed) speed = maxSpeed;
+        } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+            speed -= deceleration;  // Decelerate
+            if (speed < -maxSpeed / 2) speed = -maxSpeed / 2;  // Reverse speed limit
+        } else {
+            // Gradually reduce speed when no input is given
+            if (speed > 0) {
+                speed -= deceleration;
+                if (speed < 0) speed = 0;
+            } else if (speed < 0) {
+                speed += deceleration;
+                if (speed > 0) speed = 0;
+            }
+        }
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+            voiture.angle -= turnSpeed * (speed / maxSpeed);  // Turn left
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            voiture.angle += turnSpeed * (speed / maxSpeed);  // Turn right
+        }
+
+        // Update car position based on speed and angle
+        voiture.position.x -= speed * sin(voiture.angle);
+        voiture.position.y -= speed * cos(voiture.angle);
+
+        // Update car sprite position and rotation
         voiture.sprite.setPosition(voiture.position);
         voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
 
+        // Render the scene
         window.clear();
         window.draw(map.grass, grassState);
         window.draw(map.track, trackState);
@@ -924,9 +959,10 @@ int main() {
 
     return 0;
 }
-*/
 
-//Version force de Nadir et contrôle du déplacement
+/*
+
+//Version force de Nadir et contrôle du déplacement (On peut supprimer car code corrigé au dessus)
 
 #include <SFML/Graphics.hpp>
 #include <vector>
@@ -1100,3 +1136,4 @@ int main() {
 
     return 0;
 }
+*/
