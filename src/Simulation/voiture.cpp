@@ -63,6 +63,7 @@ double Voiture::getX() const { return x; }
 double Voiture::getY() const { return y; }
 double Voiture::getAngle() const { return angle; }
 double Voiture::getVitesse() const { return sqrt(vx*vx + vy*vy); }
+double Voiture::setVitesse(double vpsi) { return vpsi; }
 double Voiture::getVitesseX() const { return vx; }
 double Voiture::getVitesseY() const { return vy; }
 double Voiture::getAcceleration() const { return sqrt(ax*ax + ay*ay); }
@@ -71,4 +72,3 @@ double Voiture::getVx() const { return vx; }
 double Voiture::getVy() const { return vy; }
 double Voiture::getMasse() const { return masse; }
 double Voiture::getVitesseLacet() const { return sqrt(vx*vx + vy*vy) / empattement; }
-

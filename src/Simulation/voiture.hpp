@@ -25,6 +25,7 @@ class Voiture {
         double getY() const;
         double getAngle() const;
         double getVitesse() const;
+        double setVitesse(double v);
         double getVitesseX() const;
         double getVitesseY() const;
         double getAcceleration() const;
@@ -33,6 +34,7 @@ class Voiture {
         double getMasse() const ;
         double getEmpattement() const ;
         double getVitesseLacet() const;
+        double setVitesseLacet(double vpsi);
         
 
     };

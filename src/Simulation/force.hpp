@@ -17,12 +17,15 @@ public:
 
 // Force Motrice
 class ForceMotrice : public Force {
-private:
-    double intensite; // Newtons
-public:
-    ForceMotrice(double intensite);
-    std::pair<double, double> calculer_force(const Voiture& voiture) const override;
-};
+    private:
+        double intensite_max;          // Force maximale en N
+        double vitesse_saturation;     // Seuil de saturation (vitesse max utile)
+    
+    public:
+        ForceMotrice(double intensite_max, double vitesse_saturation = 20.0);
+        std::pair<double, double> calculer_force(const Voiture& voiture) const override;
+    };
+    
 
 // Force Frottement
 class ForceFrottement : public Force {
@@ -105,5 +108,30 @@ class ForceFreinage : public Force {
     void avancer(double dt);
 
 };
+
+// Force de résistance de l'air
+class ForceAerodynamique : public Force {
+    private:
+        double coefficient_trainee; // Coefficient de traînée (Cx * A * rho / 2)
+    
+    public:
+        ForceAerodynamique(double coeff) : coefficient_trainee(coeff) {}
+    
+        std::pair<double, double> calculer_force(const Voiture& voiture) const override {
+            double vx = voiture.getVitesseX();
+            double vy = voiture.getVitesseY();
+    
+            // Vecteur vitesse et norme
+            double v_norme = std::sqrt(vx * vx + vy * vy);
+            if (v_norme < 1e-3) return {0.0, 0.0}; // pas de vitesse, pas de résistance
+    
+            // Force opposée à la vitesse, proportionnelle à v²
+            double fx = -coefficient_trainee * vx * v_norme;
+            double fy = -coefficient_trainee * vy * v_norme;
+    
+            return {fx, fy};
+        }
+    };
+    
 
 #endif

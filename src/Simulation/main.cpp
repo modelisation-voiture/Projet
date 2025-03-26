@@ -12,8 +12,10 @@ int main() {
     ForceFrottement frottement(coeff_frottement);
     ForceFreinage frein(2.0);
     ForceVirage virage(0.0);
+    ForceAerodynamique forceAir(0.9); // Fair = (1/2)⋅ρ⋅Cx*A*v*v      
 
-    std::vector<Force*> forces = {&moteur, &frottement, &frein, &virage};
+
+    std::vector<Force*> forces = {&moteur, &frottement, &frein, &virage, &forceAir};
     Map carte;
     std::ofstream fichier("trajectoire.txt");
 
@@ -94,6 +96,11 @@ int main() {
         auto [fx_vir, fy_vir] = virage.calculer_force(voiture);
         fx += fx_vir;
         fy += fy_vir;
+
+        // Force aérodynamique
+        auto [fx_air, fy_air] = forceAir.calculer_force(voiture);
+        fx += fx_air;
+        fy += fy_air;
 
         // Mise à jour par RK4
         voiture.updatePositionRK4(dt, fx, fy, coeff_frottement, angle_braquage);
