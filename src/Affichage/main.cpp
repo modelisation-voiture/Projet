@@ -717,6 +717,7 @@ int main() {
 
 //version avec les force de nadir
 /*
+/*
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <cmath>
@@ -941,8 +942,8 @@ int main() {
         }
 
         // Update car position based on speed and angle
-        voiture.position.x += speed * cos(voiture.angle);
-        voiture.position.y += speed * sin(voiture.angle);
+        voiture.position.x -= speed * sin(voiture.angle);
+        voiture.position.y -= speed * cos(voiture.angle);
 
         // Update car sprite position and rotation
         voiture.sprite.setPosition(voiture.position);
@@ -958,37 +959,134 @@ int main() {
 
     return 0;
 }
-*/
 
-//version 3.0
+/*
+
+//Version force de Nadir et contrôle du déplacement (On peut supprimer car code corrigé au dessus)
+
 #include <SFML/Graphics.hpp>
-#include "map.hpp"
-#include "voiture.hpp"
-#include <math.h>
+#include <vector>
+#include <cmath>
+#include <iostream>
+
+// Déclaration des textures
+sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
+
+// Fonction pour charger les textures
+bool loadTextures() {
+    if (!trackTexture.loadFromFile("../../assets/asphalt.jpg") ||
+        !grassTexture.loadFromFile("../../assets/grass.png") ||
+        !borderTexture.loadFromFile("../../assets/outer.png") ||
+        !carTexture.loadFromFile("../../assets/car.png")) {
+        return false;
+    }
+    return true;
+}
+
+// Fonction pour créer la zone d'herbe autour de la piste
+sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
+    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
+    sf::Vector2f center(400, 300);
+
+    for (size_t i = 0; i < track.getVertexCount(); i++) {
+        sf::Vector2f pos = track[i].position;
+        sf::Vector2f direction = pos - center;
+        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+
+        if (length != 0) {
+            direction /= length; // Normalisation
+        }
+
+        grass[i].position = pos + direction * extraWidth;
+        grass[i].texCoords = sf::Vector2f(pos.x, pos.y);
+    }
+
+    // Fermer la boucle
+    grass[track.getVertexCount()] = grass[0];
+    grass[track.getVertexCount() + 1] = grass[1];
+
+    return grass;
+}
+
+// Fonction pour créer une piste fermée
+sf::VertexArray createTrack() {
+    const int numPoints = 100;
+    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
+
+    float centerX = 400, centerY = 300;
+    float radiusX = 250, radiusY = 150;
+    float trackWidth = 50;
+
+    for (int i = 0; i < numPoints; i++) {
+        float angle = (i / (float)numPoints) * 2 * M_PI;
+
+        float rX = radiusX + 30 * std::sin(3 * angle);
+        float rY = radiusY + 20 * std::cos(2 * angle);
+
+        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
+        float y1 = centerY + (rX - trackWidth) * std::sin(angle);
+
+        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
+        float y2 = centerY + (rX + trackWidth) * std::sin(angle);
+
+        track[i * 2].position = sf::Vector2f(x1, y1);
+        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
+    }
+
+    // Fermer le circuit
+    track[numPoints * 2 - 2].position = track[0].position;
+    track[numPoints * 2 - 1].position = track[1].position;
+
+    return track;
+}
+
+// Vérifie si la voiture est sur l'herbe en fonction de sa position
+bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
+    float centerX = 400, centerY = 300;
+    float radiusX = 250, radiusY = 150;
+
+    float dx = carPosition.x - centerX;
+    float dy = carPosition.y - centerY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+
+    float outerRadius = std::max(radiusX, radiusY) + trackWidth;
+    float innerRadius = std::min(radiusX, radiusY) - trackWidth;
+
+    return (distance > outerRadius || distance < innerRadius);
+}
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
     window.setFramerateLimit(60);
 
-    Map map;
-    if (!map.loadTextures()) {
+    if (!loadTextures()) {
+        std::cerr << "Erreur de chargement des textures !" << std::endl;
         return -1;
     }
 
-    Voiture voiture;
-    sf::Texture carTexture;
-    if (!carTexture.loadFromFile("../../assets/car.png")) {
-        return -1;
-    }
-    voiture.sprite.setTexture(carTexture);
-    voiture.sprite.setScale(0.15f, 0.15f);
-    voiture.sprite.setPosition(voiture.position);
+    sf::VertexArray track = createTrack();
+    sf::VertexArray grass = createGrass(track, 40);
 
+    sf::Sprite carSprite;
+    carSprite.setTexture(carTexture);
+    carSprite.setScale(0.2f, 0.2f);
+    carSprite.setPosition(100, 100);
+
+    // États pour appliquer les textures
     sf::RenderStates trackState, grassState;
-    map.grassTexture.setRepeated(true);
-    map.trackTexture.setRepeated(true);
-    trackState.texture = &map.trackTexture;
-    grassState.texture = &map.grassTexture;
+    grassTexture.setRepeated(true);
+    trackTexture.setRepeated(true);
+    trackState.texture = &trackTexture;
+    grassState.texture = &grassTexture;
+
+    // Variables pour le déplacement de la voiture
+    sf::Vector2f carPosition = carSprite.getPosition();
+    float carSpeed = 0.0f;
+    float maxSpeed = 4.0f;
+    float acceleration = 0.1f;
+    float friction = 0.98f;
+    float turnSpeed = 1.0f;
+    float carAngle = 0.0f;
 
     while (window.isOpen()) {
         sf::Event event;
@@ -997,30 +1095,45 @@ int main() {
                 window.close();
         }
 
-        // Commandes clavier
+        // Gestion des touches pour le contrôle
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-            voiture.accelerate(0.2f); // Augmenter la puissance
+            carSpeed += acceleration;  // Accélère
+            if (carSpeed > maxSpeed)
+                carSpeed = maxSpeed;
         }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-            voiture.brake(0.3f); // Freiner
+            carSpeed -= acceleration;  // Freine
+            if (carSpeed < -maxSpeed / 2)
+                carSpeed = -maxSpeed / 2;  // Marche arrière plus lente
         }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            voiture.turn(-0.05f); // Tourner à gauche
+            carAngle -= turnSpeed * (carSpeed / maxSpeed);  // Tourne à gauche
         }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            voiture.turn(0.05f); // Tourner à droite
+            carAngle += turnSpeed * (carSpeed / maxSpeed);  // Tourne à droite
         }
 
-        voiture.updatePosition(map);
-        voiture.sprite.setPosition(voiture.position);
-        //voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
+        // Appliquer friction (ralentissement naturel)
+        carSpeed *= friction;
+
+        // Déplacer la voiture en fonction de l'angle et de la vitesse
+        carPosition.x -= carSpeed * std::sin(carAngle);
+        carPosition.y -= carSpeed * std::cos(carAngle);
+        carSprite.setPosition(carPosition);
+        carSprite.setRotation(carAngle * 180 / M_PI);
+
+        // Vérifier si la voiture est sur l'herbe
+        if (isOnGrass(carPosition, track, 50)) {
+            carSpeed *= 0.8f;  // Ralentissement sur l'herbe
+        }
 
         window.clear();
-        window.draw(map.grass, grassState);
-        window.draw(map.track, trackState);
-        window.draw(voiture.sprite);
+        window.draw(grass, grassState);
+        window.draw(track, trackState);
+        window.draw(carSprite);
         window.display();
     }
 
     return 0;
 }
+*/
