@@ -717,7 +717,7 @@ int main() {
 
 //version avec les force de nadir
 /*
-/*
+
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <cmath>
@@ -871,7 +871,7 @@ int main() {
 */
 
 //version 2.0 force de Nadir  avec les touches clavier 
-/*
+
 #include <SFML/Graphics.hpp>
 #include "map.hpp"
 #include "voiture.hpp"
@@ -935,15 +935,30 @@ int main() {
         }
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            voiture.angle -= turnSpeed * (speed / maxSpeed);  // Turn left
+            voiture.angle -= turnSpeed * (speed / maxSpeed)/10;  // Turn left
         }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            voiture.angle += turnSpeed * (speed / maxSpeed);  // Turn right
+            voiture.angle += turnSpeed * (speed / maxSpeed)/10;  // Turn right
         }
 
         // Update car position based on speed and angle
         voiture.position.x -= speed * sin(voiture.angle);
         voiture.position.y -= speed * cos(voiture.angle);
+
+        // Empêcher la voiture de sortir du cadre de la fenêtre
+        float carWidth = voiture.sprite.getGlobalBounds().width;
+        float carHeight = voiture.sprite.getGlobalBounds().height;
+
+        if (voiture.position.x < 0)
+            voiture.position.x = 0;
+        if (voiture.position.x > window.getSize().x - carWidth)
+            voiture.position.x = window.getSize().x - carWidth;
+
+        if (voiture.position.y < 0)
+            voiture.position.y = 0;
+        if (voiture.position.y > window.getSize().y - carHeight)
+            voiture.position.y = window.getSize().y - carHeight;
+
 
         // Update car sprite position and rotation
         voiture.sprite.setPosition(voiture.position);
