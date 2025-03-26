@@ -272,7 +272,7 @@ int main() {
 */
 
 //version ameliorée avec les textures 
-/*
+
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <cmath>
@@ -421,7 +421,6 @@ int main() {
 
     return 0;
 }
-*/
 
 
 //version pour charger plusieurs circuits
@@ -716,7 +715,7 @@ int main() {
 */
 
 //version avec les force de nadir
-
+/*
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <cmath>
@@ -867,7 +866,7 @@ int main() {
 
     return 0;
 }
-
+*/
 
 //version 2.0 force de Nadir 
 /*

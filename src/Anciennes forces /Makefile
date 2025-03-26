@@ -1,9 +1,9 @@
-#Make avec les forces de Nadir
+#Makefile avec les anciennes forces 
 CXX = g++
 CXXFLAGS = -std=c++17 -I ../../SFML-2.5.1/include/SFML/
 LDFLAGS = -L SFML-2.5.1/lib -lsfml-graphics -lsfml-window -lsfml-system
 
-SRC = main.cpp  voiture.cpp map.cpp force.cpp
+SRC = main.cpp  CarModel.cpp VoitureRC.cpp ForceMotrice.cpp Force.cpp
 OBJ = $(SRC:.cpp=.o)
 TARGET = rc_simulation
 
@@ -17,3 +17,4 @@ $(TARGET): $(OBJ)
 
 clean:
 	rm -f $(OBJ) $(TARGET)
+
