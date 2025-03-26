@@ -870,7 +870,7 @@ int main() {
 */
 
 //version 2.0 force de Nadir  avec les touches clavier 
-
+/*
 #include <SFML/Graphics.hpp>
 #include "map.hpp"
 #include "voiture.hpp"
@@ -949,6 +949,72 @@ int main() {
         voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
 
         // Render the scene
+        window.clear();
+        window.draw(map.grass, grassState);
+        window.draw(map.track, trackState);
+        window.draw(voiture.sprite);
+        window.display();
+    }
+
+    return 0;
+}
+*/
+
+//version 3.0
+#include <SFML/Graphics.hpp>
+#include "map.hpp"
+#include "voiture.hpp"
+#include <math.h>
+
+int main() {
+    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
+    window.setFramerateLimit(60);
+
+    Map map;
+    if (!map.loadTextures()) {
+        return -1;
+    }
+
+    Voiture voiture;
+    sf::Texture carTexture;
+    if (!carTexture.loadFromFile("../../assets/car.png")) {
+        return -1;
+    }
+    voiture.sprite.setTexture(carTexture);
+    voiture.sprite.setScale(0.15f, 0.15f);
+    voiture.sprite.setPosition(voiture.position);
+
+    sf::RenderStates trackState, grassState;
+    map.grassTexture.setRepeated(true);
+    map.trackTexture.setRepeated(true);
+    trackState.texture = &map.trackTexture;
+    grassState.texture = &map.grassTexture;
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        // Commandes clavier
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+            voiture.accelerate(0.2f); // Augmenter la puissance
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+            voiture.brake(0.3f); // Freiner
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+            voiture.turn(-0.05f); // Tourner à gauche
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            voiture.turn(0.05f); // Tourner à droite
+        }
+
+        voiture.updatePosition(map);
+        voiture.sprite.setPosition(voiture.position);
+        //voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
+
         window.clear();
         window.draw(map.grass, grassState);
         window.draw(map.track, trackState);
