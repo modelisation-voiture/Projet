@@ -1,27 +1,51 @@
-#ifndef VOITURE_HPP
-#define VOITURE_HPP
-
-#include <SFML/Graphics.hpp>
-#include "map.hpp"
-#include "force.hpp"
-
 class Voiture {
-public:
-    sf::Sprite sprite;
-    sf::Vector2f position;
-    float speed;        // Vitesse actuelle
-    float power;        // Puissance du moteur
-    float angle;        // Direction de la voiture
-    float wheelAngle;   // Angle des roues (direction)
-    float maxPower;     // Puissance maximale du moteur
-    float maxTurnAngle; // Angle maximal des roues
-    Force force;
+    private:
+        double x, y;
+        double angle;
+        double vx, vy;
+        double ax, ay;
+        double masse;
+        double empattement; // Distance entre roues avant et arrière
+        bool frein_actif = false;
+        bool frein_main_actif = false;
 
-    Voiture();
-    void updatePosition(Map& map);
-    void accelerate(float value); // Augmente la puissance
-    void brake(float value);      // Réduit la puissance
-    void turn(float value);       // Modifie l’angle des roues
-};
 
-#endif // VOITURE_HPP
+    
+    public:
+        Voiture(double x_init, double y_init, double angle_deg, double masse, double empattement);
+
+
+        void appliquerForce(double fx, double fy);
+        void updatePositionRK4(double dt, double fx, double fy, double coeff_frottement, double angle_braquage_deg);
+    
+        // Ajout pour virage :
+        double calculerRayonCourbure(double angle_braquage_deg) const;
+        bool isFreinActif() const { return frein_actif; }
+        void activerFrein(bool actif) { frein_actif = actif; }
+
+        
+    
+        double getX() const;
+        double getY() const;
+        void setX(double x_val) { x = x_val; }       
+        void setY(double y_val) { y = y_val; }
+
+        double getAngle() const;
+        double getVitesse() const;
+        double setVitesse(double v);
+        double getVitesseX() const;
+        double getVitesseY() const;
+        double getAcceleration() const;
+        double getVx() const;
+        double getVy() const;
+        double getMasse() const ;
+        double getEmpattement() const ;
+        double getVitesseLacet() const;
+        double setVitesseLacet(double vpsi);
+        void setFreinMainActif(bool actif) { frein_main_actif = actif; }
+        bool isFreinMainActif() const { return frein_main_actif; }
+
+        
+
+    };
+    

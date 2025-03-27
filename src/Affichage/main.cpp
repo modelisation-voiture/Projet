@@ -872,108 +872,108 @@ int main() {
 
 //version 2.0 force de Nadir  avec les touches clavier 
 
-#include <SFML/Graphics.hpp>
-#include "map.hpp"
-#include "voiture.hpp"
-#include <math.h>
+// #include <SFML/Graphics.hpp>
+// #include "map.hpp"
+// #include "voiture.hpp"
+// #include <math.h>
 
-int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-    window.setFramerateLimit(60);
+// int main() {
+//     sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
+//     window.setFramerateLimit(60);
 
-    Map map;
-    if (!map.loadTextures()) {
-        return -1;
-    }
+//     Map map;
+//     if (!map.loadTextures()) {
+//         return -1;
+//     }
 
-    Voiture voiture;
-    sf::Texture carTexture;
-    if (!carTexture.loadFromFile("../../assets/car.png")) {
-        return -1;
-    }
-    voiture.sprite.setTexture(carTexture);
-    voiture.sprite.setScale(0.15f, 0.15f);
-    voiture.sprite.setPosition(625, 300);
+//     Voiture voiture;
+//     sf::Texture carTexture;
+//     if (!carTexture.loadFromFile("../../assets/car.png")) {
+//         return -1;
+//     }
+//     voiture.sprite.setTexture(carTexture);
+//     voiture.sprite.setScale(0.15f, 0.15f);
+//     voiture.sprite.setPosition(625, 300);
 
-    // États pour appliquer les textures
-    sf::RenderStates trackState, grassState;
-    map.grassTexture.setRepeated(true);
-    map.trackTexture.setRepeated(true);
-    trackState.texture = &map.trackTexture;
-    grassState.texture = &map.grassTexture;
+//     // États pour appliquer les textures
+//     sf::RenderStates trackState, grassState;
+//     map.grassTexture.setRepeated(true);
+//     map.trackTexture.setRepeated(true);
+//     trackState.texture = &map.trackTexture;
+//     grassState.texture = &map.grassTexture;
 
-    // Variables for car control
-    float acceleration = 0.2f;  // Acceleration factor
-    float deceleration = 0.1f;  // Deceleration factor
-    float maxSpeed = 5.0f;      // Maximum speed
-    float turnSpeed = 3.0f;     // Turning speed
-    float speed = 0.0f;         // Current speed
+//     // Variables for car control
+//     float acceleration = 0.2f;  // Acceleration factor
+//     float deceleration = 0.1f;  // Deceleration factor
+//     float maxSpeed = 5.0f;      // Maximum speed
+//     float turnSpeed = 3.0f;     // Turning speed
+//     float speed = 0.0f;         // Current speed
 
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
+//     while (window.isOpen()) {
+//         sf::Event event;
+//         while (window.pollEvent(event)) {
+//             if (event.type == sf::Event::Closed)
+//                 window.close();
+//         }
 
-        // Handle user input for car control
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-            speed += acceleration;  // Accelerate
-            if (speed > maxSpeed) speed = maxSpeed;
-        } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-            speed -= deceleration;  // Decelerate
-            if (speed < -maxSpeed / 2) speed = -maxSpeed / 2;  // Reverse speed limit
-        } else {
-            // Gradually reduce speed when no input is given
-            if (speed > 0) {
-                speed -= deceleration;
-                if (speed < 0) speed = 0;
-            } else if (speed < 0) {
-                speed += deceleration;
-                if (speed > 0) speed = 0;
-            }
-        }
+//         // Handle user input for car control
+//         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+//             speed += acceleration;  // Accelerate
+//             if (speed > maxSpeed) speed = maxSpeed;
+//         } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+//             speed -= deceleration;  // Decelerate
+//             if (speed < -maxSpeed / 2) speed = -maxSpeed / 2;  // Reverse speed limit
+//         } else {
+//             // Gradually reduce speed when no input is given
+//             if (speed > 0) {
+//                 speed -= deceleration;
+//                 if (speed < 0) speed = 0;
+//             } else if (speed < 0) {
+//                 speed += deceleration;
+//                 if (speed > 0) speed = 0;
+//             }
+//         }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            voiture.angle -= turnSpeed * (speed / maxSpeed)/10;  // Turn left
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            voiture.angle += turnSpeed * (speed / maxSpeed)/10;  // Turn right
-        }
+//         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+//             voiture.angle -= turnSpeed * (speed / maxSpeed)/10;  // Turn left
+//         }
+//         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+//             voiture.angle += turnSpeed * (speed / maxSpeed)/10;  // Turn right
+//         }
 
-        // Update car position based on speed and angle
-        voiture.position.x -= speed * sin(voiture.angle);
-        voiture.position.y -= speed * cos(voiture.angle);
+//         // Update car position based on speed and angle
+//         voiture.position.x -= speed * sin(voiture.angle);
+//         voiture.position.y -= speed * cos(voiture.angle);
 
-        // Empêcher la voiture de sortir du cadre de la fenêtre
-        float carWidth = voiture.sprite.getGlobalBounds().width;
-        float carHeight = voiture.sprite.getGlobalBounds().height;
+//         // Empêcher la voiture de sortir du cadre de la fenêtre
+//         float carWidth = voiture.sprite.getGlobalBounds().width;
+//         float carHeight = voiture.sprite.getGlobalBounds().height;
 
-        if (voiture.position.x < 0)
-            voiture.position.x = 0;
-        if (voiture.position.x > window.getSize().x - carWidth)
-            voiture.position.x = window.getSize().x - carWidth;
+//         if (voiture.position.x < 0)
+//             voiture.position.x = 0;
+//         if (voiture.position.x > window.getSize().x - carWidth)
+//             voiture.position.x = window.getSize().x - carWidth;
 
-        if (voiture.position.y < 0)
-            voiture.position.y = 0;
-        if (voiture.position.y > window.getSize().y - carHeight)
-            voiture.position.y = window.getSize().y - carHeight;
+//         if (voiture.position.y < 0)
+//             voiture.position.y = 0;
+//         if (voiture.position.y > window.getSize().y - carHeight)
+//             voiture.position.y = window.getSize().y - carHeight;
 
 
-        // Update car sprite position and rotation
-        voiture.sprite.setPosition(voiture.position);
-        voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
+//         // Update car sprite position and rotation
+//         voiture.sprite.setPosition(voiture.position);
+//         voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
 
-        // Render the scene
-        window.clear();
-        window.draw(map.grass, grassState);
-        window.draw(map.track, trackState);
-        window.draw(voiture.sprite);
-        window.display();
-    }
+//         // Render the scene
+//         window.clear();
+//         window.draw(map.grass, grassState);
+//         window.draw(map.track, trackState);
+//         window.draw(voiture.sprite);
+//         window.display();
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
 /*
 
@@ -1152,3 +1152,167 @@ int main() {
     return 0;
 }
 */
+
+// Version 3.0 de Nadir ca va etre un banger
+#include <SFML/Graphics.hpp>
+#include "force.hpp"  // Contient déjà voiture.hpp
+#include "map.hpp"
+#include <cmath>
+#include <iomanip>
+#include <sstream>
+#include <iostream>
+
+
+int main() {
+    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
+    window.setFramerateLimit(60);
+
+    float tempsDepuisDernierUpdateTexte = 0.0f;
+
+
+    sf::Font font;
+    if (!font.loadFromFile("../../assets/Roboto-Regular.ttf")) {
+        std::cerr << "Erreur chargement police\n";
+        return -1;
+    }
+    sf::Text hudText;
+    hudText.setFont(font);
+    hudText.setCharacterSize(18);
+    hudText.setFillColor(sf::Color::White);
+    hudText.setPosition(10, 10);
+
+
+    // Chargement de la map
+    Map map;
+    if (!map.loadTextures()) return -1;
+
+    // Sprite de la voiture
+    sf::Texture carTexture;
+    if (!carTexture.loadFromFile("../../assets/car.png")) return -1;
+    sf::Sprite carSprite;
+    carSprite.setTexture(carTexture);
+    carSprite.setScale(0.15f, 0.15f);
+
+    // Triangle de direction
+    sf::ConvexShape directionIndicator;
+    directionIndicator.setPointCount(3);
+    directionIndicator.setPoint(0, sf::Vector2f(0, -20));
+    directionIndicator.setPoint(1, sf::Vector2f(10, 10));
+    directionIndicator.setPoint(2, sf::Vector2f(-10, 10));
+    directionIndicator.setFillColor(sf::Color::Blue);
+    directionIndicator.setOrigin(0, 0);
+
+    // Textures map
+    sf::RenderStates trackState, grassState;
+    map.trackTexture.setRepeated(true);
+    map.grassTexture.setRepeated(true);
+    trackState.texture = &map.trackTexture;
+    grassState.texture = &map.grassTexture;
+
+    // Voiture et forces
+    Voiture voiture(625, 300, 0, 20.0, 0.3); // x, y, angle, masse, empattement
+    ForceMotrice moteur(600000.0, 200.0);
+    ForceFrottement frottement(0.02);
+    ForceFreinage frein(0.3);
+    ForceAerodynamique air(0.0072);
+    ForceVirage virage(0.0);
+    ForceFreinGlisse freinGlisse(10);  // A ajuster selon l’effet visuel souhaité
+    std::vector<Force*> forces = {&moteur, &frottement, &air, &frein, &virage, &freinGlisse};
+
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        // === CONTRÔLES UTILISATEUR ===
+        int etat = 0;
+        double angle_braquage = 0.0;
+        voiture.activerFrein(false);
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+            etat = 1; // Accélère
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+            voiture.activerFrein(true);
+            etat = -1; // Frein
+        }
+
+        // ↓ Réglage de la sensibilité du volant ICI ↓
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+            angle_braquage = -1.0; // ← Tourne à gauche
+        }
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            angle_braquage = 1.0;  // → Tourne à droite
+        }
+        bool freinMainActif = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
+        voiture.setFreinMainActif(freinMainActif);
+
+
+
+        // === FORCES PHYSIQUES ===
+        double fx = 0, fy = 0;
+        virage = ForceVirage(angle_braquage);
+
+        for (auto* f : forces) {
+            if (f == &moteur && etat != 1) continue;
+            if (f == &frein && !voiture.isFreinActif()) continue;
+            if (f == &freinGlisse && !freinMainActif) continue;
+        
+            auto [fx_i, fy_i] = f->calculer_force(voiture);
+            fx += fx_i;
+            fy += fy_i;
+        }
+        
+
+        voiture.appliquerForce(fx, fy);
+        voiture.updatePositionRK4(0.01, fx, fy, 0.02, angle_braquage);
+
+        // === EMPÊCHER DE SORTIR DU CADRE ===
+        float carWidth = carSprite.getGlobalBounds().width;
+        float carHeight = carSprite.getGlobalBounds().height;
+
+        if (voiture.getX() < 0) voiture.setX(0);
+        if (voiture.getX() > window.getSize().x - carWidth) voiture.setX(window.getSize().x - carWidth);
+        if (voiture.getY() < 0) voiture.setY(0);
+        if (voiture.getY() > window.getSize().y - carHeight) voiture.setY(window.getSize().y - carHeight);
+
+        // === RENDU VISUEL ===
+        carSprite.setPosition(voiture.getX(), voiture.getY());
+        carSprite.setRotation(voiture.getAngle()+90); // Ajustement de l'angle pour correspondre à la rotation de la voiture
+
+        directionIndicator.setPosition(voiture.getX(), voiture.getY());
+        directionIndicator.setRotation(voiture.getAngle() + angle_braquage+90); // Ajustement de l'angle pour correspondre à la direction de la voiture
+        window.clear();
+        window.draw(map.grass, grassState);
+        window.draw(map.track, trackState);
+        window.draw(carSprite);
+        window.draw(directionIndicator);
+        // === Affichage de la vitesse et angle ===
+        // Calcul du temps écoulé entre les frames
+        static sf::Clock clock;
+        float dt = clock.restart().asSeconds();
+        tempsDepuisDernierUpdateTexte += dt;
+
+        if (tempsDepuisDernierUpdateTexte >= 0.25f) {  // toutes les 250 ms
+            std::ostringstream oss;
+            oss << "Vitesse : " << std::fixed << std::setprecision(2) << voiture.getVitesse() << " m/s\n"
+                << "Angle   : " << std::fixed << std::setprecision(2) << voiture.getAngle() << "degres\n"
+                << "Frein a main : " << (freinMainActif ? "OUI" : "non") << "\n";
+            hudText.setString(oss.str());
+
+            tempsDepuisDernierUpdateTexte = 0.0f;
+        }
+        
+
+
+        window.draw(hudText);
+        
+        
+        window.display();
+            }
+
+    return 0;
+}
