@@ -1,4 +1,5 @@
 #include "voiture.hpp"
+#include <cmath>
 #include <utility>
 
 Voiture::Voiture(double x_init, double y_init, double angle_deg, double masse, double empattement)

@@ -1161,14 +1161,146 @@ int main() {
 #include <iomanip>
 #include <sstream>
 #include <iostream>
+#include <vector>
 
+// Déclaration des textures
+sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
+
+// Normaliser un angle en radians entre -PI et PI
+float normalizeAngle(float angle) {
+    while (angle > M_PI) angle -= 2 * M_PI;
+    while (angle < -M_PI) angle += 2 * M_PI;
+    return angle;
+}
+
+// Fonction pour charger les textures
+bool loadTextures() {
+    if (!trackTexture.loadFromFile("../../assets/asphalt.jpg") ||
+        !grassTexture.loadFromFile("../../assets/grass.png") ||
+        !borderTexture.loadFromFile("../../assets/outer.png") ||
+        !carTexture.loadFromFile("../../assets/car.png")) {
+        return false;
+    }
+    return true;
+}
+
+// Fonction pour créer la zone d'herbe autour de la piste
+sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
+    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
+    sf::Vector2f center(400, 300);
+
+    for (size_t i = 0; i < track.getVertexCount(); i++) {
+        sf::Vector2f pos = track[i].position;
+        sf::Vector2f direction = pos - center;
+        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+
+        if (length != 0) {
+            direction /= length; // Normalisation
+        }
+
+        grass[i].position = pos + direction * extraWidth;
+        grass[i].texCoords = sf::Vector2f(pos.x, pos.y);
+    }
+
+    // Fermer la boucle
+    grass[track.getVertexCount()] = grass[0];
+    grass[track.getVertexCount() + 1] = grass[1];
+
+    return grass;
+}
+
+// Fonction pour créer une piste fermée
+sf::VertexArray createTrack() {
+    const int numPoints = 100;
+    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
+
+    float centerX = 400, centerY = 300;
+    float radiusX = 250, radiusY = 150;
+    float trackWidth = 50;
+
+    for (int i = 0; i < numPoints; i++) {
+        float angle = (i / (float)numPoints) * 2 * M_PI;
+
+        float rX = radiusX + 30 * std::sin(3 * angle);
+        float rY = radiusY + 20 * std::cos(2 * angle);
+
+        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
+        float y1 = centerY + (rX - trackWidth) * std::sin(angle);
+
+        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
+        float y2 = centerY + (rX + trackWidth) * std::sin(angle);
+
+        track[i * 2].position = sf::Vector2f(x1, y1);
+        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
+    }
+
+    // Fermer le circuit
+    track[numPoints * 2 - 2].position = track[0].position;
+    track[numPoints * 2 - 1].position = track[1].position;
+
+    return track;
+}
+
+// Vérifie si la voiture est sur l'herbe en fonction de sa position
+bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
+    float centerX = 400, centerY = 300;
+    float radiusX = 250, radiusY = 150;
+
+    float dx = carPosition.x - centerX;
+    float dy = carPosition.y - centerY;
+    float distance = std::sqrt(dx * dx + dy * dy);
+
+    float outerRadius = std::max(radiusX, radiusY) + trackWidth;
+    float innerRadius = std::min(radiusX, radiusY) - trackWidth;
+
+    return (distance > outerRadius || distance < innerRadius);
+}
+
+// Fonction pour calculer l'angle de braquage nécessaire pour suivre le circuit
+float calculateSteeringAngle(const Voiture& voiture, const sf::Vector2f& center, float idealRadius) {
+    // Position actuelle de la voiture
+    float carX = voiture.getX();
+    float carY = voiture.getY();
+    
+    // Vecteur du centre vers la voiture
+    float dx = carX - center.x;
+    float dy = carY - center.y;
+    
+    // Distance actuelle par rapport au centre
+    float currentRadius = std::sqrt(dx * dx + dy * dy);
+    
+    // Angle de la voiture par rapport au centre (en radians)
+    float angleToCenter = std::atan2(dy, dx);
+    
+    // Angle actuel de la voiture (converti en radians)
+    float carAngle = voiture.getAngle() * M_PI / 180.0;
+    
+    // Direction tangentielle idéale (perpendiculaire au rayon)
+    float idealTangentAngle = angleToCenter + M_PI / 2;
+    
+    // Différence entre l'angle actuel et l'angle idéal
+    float angleDiff = normalizeAngle(idealTangentAngle - carAngle);
+    
+    // Ajustement en fonction de la distance par rapport au rayon idéal
+    float radiusError = (currentRadius - idealRadius) / 50.0; // Facteur d'échelle
+    
+    // Combiner la correction d'angle et la correction de rayon
+    float steeringAngle = angleDiff * 30.0 + radiusError;
+    
+    // Limiter l'angle de braquage à une plage raisonnable
+    steeringAngle = std::max(-1.0f, std::min(1.0f, steeringAngle));
+    
+    return steeringAngle;
+}
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
+    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation - Autonomous Mode");
     window.setFramerateLimit(60);
 
     float tempsDepuisDernierUpdateTexte = 0.0f;
 
+    sf::VertexArray track = createTrack();
+    sf::VertexArray grass = createGrass(track, 40);
 
     sf::Font font;
     if (!font.loadFromFile("../../assets/Roboto-Regular.ttf")) {
@@ -1180,7 +1312,6 @@ int main() {
     hudText.setCharacterSize(18);
     hudText.setFillColor(sf::Color::White);
     hudText.setPosition(10, 10);
-
 
     // Chargement de la map
     Map map;
@@ -1219,38 +1350,70 @@ int main() {
     ForceFreinGlisse freinGlisse(0.1);  // A ajuster selon l’effet visuel souhaité
     std::vector<Force*> forces = {&moteur, &frottement, &air, &frein, &virage, &freinGlisse};
 
+    // Centre du circuit et rayon idéal pour la voiture
+    sf::Vector2f center(400, 300);
+    float idealRadius = 200.0f; // Rayon idéal pour la trajectoire
+    
+    // Mode autonome activé par défaut
+    bool autonomousMode = true;
 
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::A) {
+                // Touche A pour activer/désactiver le mode autonome
+                autonomousMode = !autonomousMode;
+            }
         }
 
-        // === CONTRÔLES UTILISATEUR ===
+        // === CONTRÔLES ===
         int etat = 0;
         double angle_braquage = 0.0;
         voiture.activerFrein(false);
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-            etat = 1; // Accélère
+        if (autonomousMode) {
+            // Mode autonome : calcul de l'angle de braquage et accélération constante
+            etat = 1; // Toujours accélérer en mode autonome
+            angle_braquage = calculateSteeringAngle(voiture, center, idealRadius);
+            
+            // Vérifier si on est sur l'herbe, et ajuster si nécessaire
+            sf::Vector2f carPos(voiture.getX(), voiture.getY());
+            if (isOnGrass(carPos, track, 50)) {
+                // Si sur l'herbe, tourner vers le centre
+                float dx = center.x - voiture.getX();
+                float dy = center.y - voiture.getY();
+                float angleToCenter = atan2(dy, dx) * 180.0 / M_PI;
+                float carAngle = voiture.getAngle();
+                float angleDiff = angleToCenter - carAngle;
+                
+                // Normaliser la différence d'angle
+                while (angleDiff > 180) angleDiff -= 360;
+                while (angleDiff < -180) angleDiff += 360;
+                
+                // Déterminer la direction de braquage
+                angle_braquage = (angleDiff > 0) ? 1.0 : -1.0;
+            }
+        } else {
+            // Mode manuel - contrôles utilisateur
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                etat = 1; // Accélère
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+                voiture.activerFrein(true);
+                etat = -1; // Frein
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                angle_braquage = -1.0; // ← Tourne à gauche
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                angle_braquage = 1.0;  // → Tourne à droite
+            }
         }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
-            voiture.activerFrein(true);
-            etat = -1; // Frein
-        }
-
-        // ↓ Réglage de la sensibilité du volant ICI ↓
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            angle_braquage = -1.0; // ← Tourne à gauche
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            angle_braquage = 1.0;  // → Tourne à droite
-        }
+        
         bool freinMainActif = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
         voiture.setFreinMainActif(freinMainActif);
-
-
 
         // === FORCES PHYSIQUES ===
         double fx = 0, fy = 0;
@@ -1266,7 +1429,6 @@ int main() {
             fy += fy_i;
         }
         
-
         voiture.appliquerForce(fx, fy);
         voiture.updatePositionRK4(0.01, fx, fy, 0.02, angle_braquage);
 
@@ -1285,11 +1447,7 @@ int main() {
 
         directionIndicator.setPosition(voiture.getX(), voiture.getY());
         directionIndicator.setRotation(voiture.getAngle() + angle_braquage+90); // Ajustement de l'angle pour correspondre à la direction de la voiture
-        window.clear();
-        window.draw(map.grass, grassState);
-        window.draw(map.track, trackState);
-        window.draw(carSprite);
-        window.draw(directionIndicator);
+
         // === Affichage de la vitesse et angle ===
         // Calcul du temps écoulé entre les frames
         static sf::Clock clock;
@@ -1299,20 +1457,22 @@ int main() {
         if (tempsDepuisDernierUpdateTexte >= 0.25f) {  // toutes les 250 ms
             std::ostringstream oss;
             oss << "Vitesse : " << std::fixed << std::setprecision(2) << voiture.getVitesse() << " m/s\n"
-                << "Angle   : " << std::fixed << std::setprecision(2) << voiture.getAngle() << "degres\n"
-                << "Frein a main : " << (freinMainActif ? "OUI" : "non") << "\n";
+                << "Angle   : " << std::fixed << std::setprecision(2) << voiture.getAngle() << " degres\n"
+                << "Frein a main : " << (freinMainActif ? "OUI" : "non") << "\n"
+                << "Mode : " << (autonomousMode ? "AUTONOME (A pour désactiver)" : "MANUEL (A pour activer)");
             hudText.setString(oss.str());
 
             tempsDepuisDernierUpdateTexte = 0.0f;
         }
         
-
-
+        window.clear();
+        window.draw(grass, grassState);
+        window.draw(track, trackState);
+        window.draw(carSprite);
+        window.draw(directionIndicator);
         window.draw(hudText);
-        
-        
         window.display();
-            }
+    }
 
     return 0;
 }

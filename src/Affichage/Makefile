@@ -20,9 +20,17 @@
 #Make avec les forces de Nadir
 CXX = g++
 CXXFLAGS = -std=c++17 -I ../../SFML-2.6.2/include
-# On lie avec les frameworks SFML
-# Vérifie que tes frameworks sont bien installés dans /Library/Frameworks, sinon ajuste le chemin
-LDFLAGS = -F ../../SFML-2.6.2/Frameworks -Wl,-rpath,../../SFML-2.6.2/Frameworks -framework sfml-graphics -framework sfml-window -framework sfml-system
+
+# Détection du système
+UNAME_S := $(shell uname -s)
+
+# Configuration des options de liaison selon l'OS
+ifeq ($(UNAME_S), Darwin)  # macOS
+    LDFLAGS = -F ../../SFML-2.6.2/Frameworks -Wl,-rpath,../../SFML-2.6.2/Frameworks \
+              -framework sfml-graphics -framework sfml-window -framework sfml-system
+else  # Linux (Ubuntu, etc.)
+    LDFLAGS = -L ../../SFML-2.6.2/lib -lsfml-graphics -lsfml-window -lsfml-system
+endif
 
 SRC = main.cpp voiture.cpp map.cpp force.cpp
 OBJ = $(SRC:.cpp=.o)
