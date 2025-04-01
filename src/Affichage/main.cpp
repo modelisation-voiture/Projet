@@ -1216,7 +1216,7 @@ int main() {
     ForceFreinage frein(0.3);
     ForceAerodynamique air(0.0072);
     ForceVirage virage(0.0);
-    ForceFreinGlisse freinGlisse(10);  // A ajuster selon l’effet visuel souhaité
+    ForceFreinGlisse freinGlisse(0.1);  // A ajuster selon l’effet visuel souhaité
     std::vector<Force*> forces = {&moteur, &frottement, &air, &frein, &virage, &freinGlisse};
 
 

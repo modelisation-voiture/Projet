@@ -38,7 +38,18 @@ void Voiture::updatePositionRK4(double dt, double fx, double fy, double coeff_fr
     if (!frein_main_actif) {
         vx = v_norme * cos(angle_rad);
         vy = v_norme * sin(angle_rad);
+    } else {
+        // Bloque uniquement la composante arrière (marche arrière non autorisée)
+        double dir_x = cos(angle_rad);
+        double dir_y = sin(angle_rad);
+        double v_longitudinal = vx * dir_x + vy * dir_y;
+    
+        if (v_longitudinal < 0) {
+            vx -= v_longitudinal * dir_x;
+            vy -= v_longitudinal * dir_y;
+        }
     }
+    
 
 
     // Mise à jour position
