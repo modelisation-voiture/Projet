@@ -1163,17 +1163,10 @@ int main() {
 #include <iostream>
 #include <vector>
 
-// Déclaration des textures
+// Déclaration des textures et structures de base (inchangé)
 sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
 
-// Normaliser un angle en radians entre -PI et PI
-float normalizeAngle(float angle) {
-    while (angle > M_PI) angle -= 2 * M_PI;
-    while (angle < -M_PI) angle += 2 * M_PI;
-    return angle;
-}
-
-// Fonction pour charger les textures
+// Fonction pour charger les textures (inchangé)
 bool loadTextures() {
     if (!trackTexture.loadFromFile("../../assets/asphalt.jpg") ||
         !grassTexture.loadFromFile("../../assets/grass.png") ||
@@ -1184,7 +1177,13 @@ bool loadTextures() {
     return true;
 }
 
-// Fonction pour créer la zone d'herbe autour de la piste
+// Structure pour représenter un point de trajectoire
+struct Waypoint {
+    sf::Vector2f position;
+    float targetRadius;  // Rayon de courbure cible à ce point
+};
+
+// Fonction pour créer la zone d'herbe autour de la piste (inchangé)
 sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
     sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
     sf::Vector2f center(400, 300);
@@ -1209,15 +1208,17 @@ sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
     return grass;
 }
 
-// Fonction pour créer une piste fermée
-sf::VertexArray createTrack() {
+// Fonction pour créer une piste fermée et extraire ses points médians
+std::pair<sf::VertexArray, std::vector<Waypoint>> createTrackWithWaypoints() {
     const int numPoints = 100;
     sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
-
+    std::vector<Waypoint> waypoints;
+    
     float centerX = 400, centerY = 300;
     float radiusX = 250, radiusY = 150;
     float trackWidth = 50;
 
+    // Générer les points de la piste et les waypoints
     for (int i = 0; i < numPoints; i++) {
         float angle = (i / (float)numPoints) * 2 * M_PI;
 
@@ -1225,23 +1226,37 @@ sf::VertexArray createTrack() {
         float rY = radiusY + 20 * std::cos(2 * angle);
 
         float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rX - trackWidth) * std::sin(angle);
-
+        float y1 = centerY + (rY - trackWidth) * std::sin(angle);
+        
         float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rX + trackWidth) * std::sin(angle);
+        float y2 = centerY + (rY + trackWidth) * std::sin(angle);
 
+        // Définir les points de la piste
         track[i * 2].position = sf::Vector2f(x1, y1);
         track[i * 2 + 1].position = sf::Vector2f(x2, y2);
+        
+        // Calculer le point médian pour le waypoint
+        if (i % 5 == 0) {  // Prendre un waypoint tous les 5 points pour ne pas surcharger
+            float midX = (x1 + x2) / 2;
+            float midY = (y1 + y2) / 2;
+            
+            // Calculer le rayon de courbure à ce point
+            // (plus petit dans les virages serrés, plus grand dans les parties droites)
+            float curvature = std::abs(std::sin(3 * angle)) + std::abs(std::cos(2 * angle));
+            float targetRadius = rX * (1.0f - 0.3f * curvature);
+            
+            waypoints.push_back({sf::Vector2f(midX, midY), targetRadius});
+        }
     }
 
     // Fermer le circuit
     track[numPoints * 2 - 2].position = track[0].position;
     track[numPoints * 2 - 1].position = track[1].position;
 
-    return track;
+    return {track, waypoints};
 }
 
-// Vérifie si la voiture est sur l'herbe en fonction de sa position
+// Vérifie si la voiture est sur l'herbe en fonction de sa position (inchangé)
 bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
     float centerX = 400, centerY = 300;
     float radiusX = 250, radiusY = 150;
@@ -1256,51 +1271,117 @@ bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, fl
     return (distance > outerRadius || distance < innerRadius);
 }
 
-// Fonction pour calculer l'angle de braquage nécessaire pour suivre le circuit
-float calculateSteeringAngle(const Voiture& voiture, const sf::Vector2f& center, float idealRadius) {
+// Normaliser un angle en radians entre -PI et PI
+float normalizeAngle(float angle) {
+    while (angle > M_PI) angle -= 2 * M_PI;
+    while (angle < -M_PI) angle += 2 * M_PI;
+    return angle;
+}
+
+// Fonction pour trouver le waypoint le plus proche dans la direction de conduite
+int findNextWaypoint(const Voiture& voiture, const std::vector<Waypoint>& waypoints, int currentWaypoint) {
+    sf::Vector2f carPos(voiture.getX(), voiture.getY());
+    float carAngle = voiture.getAngle() * M_PI / 180.0f;
+    
+    // Direction de la voiture
+    sf::Vector2f carDir(std::cos(carAngle), std::sin(carAngle));
+    
+    // Regarder quelques points en avant
+    int lookAhead = 3;
+    int bestPoint = currentWaypoint;
+    float bestScore = -1;
+    
+    int waypointsCount = waypoints.size();
+    
+    for (int i = 0; i < lookAhead; i++) {
+        int pointIndex = (currentWaypoint + i) % waypointsCount;
+        
+        // Vecteur de la voiture au waypoint
+        sf::Vector2f toWaypoint = waypoints[pointIndex].position - carPos;
+        float distance = std::sqrt(toWaypoint.x * toWaypoint.x + toWaypoint.y * toWaypoint.y);
+        
+        if (distance < 10) {
+            // Si on est très proche du waypoint actuel, passer au suivant
+            bestPoint = (pointIndex + 1) % waypointsCount;
+            break;
+        }
+        
+        // Normaliser le vecteur
+        toWaypoint /= distance;
+        
+        // Calculer le produit scalaire pour avoir l'angle entre la direction de la voiture
+        // et la direction vers le waypoint
+        float dotProduct = carDir.x * toWaypoint.x + carDir.y * toWaypoint.y;
+        
+        // Meilleur score = point dans la direction de la voiture mais pas trop loin
+        float score = dotProduct * (1.0f - distance / 500.0f);
+        
+        if (score > bestScore) {
+            bestScore = score;
+            bestPoint = pointIndex;
+        }
+    }
+    
+    return bestPoint;
+}
+
+// Fonction pour calculer l'angle de braquage nécessaire pour atteindre le waypoint cible
+float calculateAdaptiveSteeringAngle(const Voiture& voiture, const Waypoint& target) {
     // Position actuelle de la voiture
-    float carX = voiture.getX();
-    float carY = voiture.getY();
+    sf::Vector2f carPos(voiture.getX(), voiture.getY());
     
-    // Vecteur du centre vers la voiture
-    float dx = carX - center.x;
-    float dy = carY - center.y;
+    // Vecteur de la voiture au waypoint
+    sf::Vector2f toTarget = target.position - carPos;
+    float distance = std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y);
     
-    // Distance actuelle par rapport au centre
-    float currentRadius = std::sqrt(dx * dx + dy * dy);
+    if (distance < 1e-3) return 0.0f;  // Éviter division par zéro
     
-    // Angle de la voiture par rapport au centre (en radians)
-    float angleToCenter = std::atan2(dy, dx);
+    // Normaliser le vecteur
+    toTarget /= distance;
     
-    // Angle actuel de la voiture (converti en radians)
-    float carAngle = voiture.getAngle() * M_PI / 180.0;
+    // Angle de la voiture (en radians)
+    float carAngle = voiture.getAngle() * M_PI / 180.0f;
     
-    // Direction tangentielle idéale (perpendiculaire au rayon)
-    float idealTangentAngle = angleToCenter + M_PI / 2;
+    // Direction de la voiture
+    sf::Vector2f carDir(std::cos(carAngle), std::sin(carAngle));
     
-    // Différence entre l'angle actuel et l'angle idéal
-    float angleDiff = normalizeAngle(idealTangentAngle - carAngle);
+    // Produit vectoriel pour déterminer si le waypoint est à gauche ou à droite
+    float crossProduct = carDir.x * toTarget.y - carDir.y * toTarget.x;
     
-    // Ajustement en fonction de la distance par rapport au rayon idéal
-    float radiusError = (currentRadius - idealRadius) / 50.0; // Facteur d'échelle
+    // Produit scalaire pour avoir l'angle entre la voiture et le waypoint
+    float dotProduct = carDir.x * toTarget.x + carDir.y * toTarget.y;
     
-    // Combiner la correction d'angle et la correction de rayon
-    float steeringAngle = angleDiff * 30.0 + radiusError;
+    // Calculer l'angle de braquage (positive = droite, negative = gauche)
+    float angleToTarget = std::atan2(crossProduct, dotProduct);
     
-    // Limiter l'angle de braquage à une plage raisonnable
+    // Ajuster la sensibilité selon la distance et le rayon de courbure
+    float sensitivity = 1.0f;
+    float steeringAngle = angleToTarget * sensitivity;
+    
+    // Limiter l'angle de braquage à une plage raisonnable [-1, 1]
     steeringAngle = std::max(-1.0f, std::min(1.0f, steeringAngle));
+    
+    // Ajuster la vitesse en fonction du rayon de courbure
+    // Plus le rayon est petit, plus on doit ralentir
+    float speedFactor = target.targetRadius / 250.0f;
     
     return steeringAngle;
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation - Autonomous Mode");
+    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation - Adaptive Steering");
     window.setFramerateLimit(60);
 
     float tempsDepuisDernierUpdateTexte = 0.0f;
 
-    sf::VertexArray track = createTrack();
+    // Créer le circuit avec waypoints
+    auto [track, waypoints] = createTrackWithWaypoints();
     sf::VertexArray grass = createGrass(track, 40);
+
+    // Visualisation des waypoints
+    sf::CircleShape waypointMarker(3);
+    waypointMarker.setFillColor(sf::Color::Yellow);
+    waypointMarker.setOrigin(3, 3);
 
     sf::Font font;
     if (!font.loadFromFile("../../assets/Roboto-Regular.ttf")) {
@@ -1347,15 +1428,19 @@ int main() {
     ForceFreinage frein(0.3);
     ForceAerodynamique air(0.0072);
     ForceVirage virage(0.0);
-    ForceFreinGlisse freinGlisse(0.1);  // A ajuster selon l’effet visuel souhaité
+    ForceFreinGlisse freinGlisse(10);  // A ajuster selon l'effet visuel souhaité
     std::vector<Force*> forces = {&moteur, &frottement, &air, &frein, &virage, &freinGlisse};
 
-    // Centre du circuit et rayon idéal pour la voiture
-    sf::Vector2f center(400, 300);
-    float idealRadius = 200.0f; // Rayon idéal pour la trajectoire
-    
     // Mode autonome activé par défaut
     bool autonomousMode = true;
+    
+    // Waypoint actuel
+    int currentWaypoint = 0;
+    
+    // Ligne pour visualiser la direction cible
+    sf::Vertex targetLine[2];
+    targetLine[0].color = sf::Color::Red;
+    targetLine[1].color = sf::Color::Red;
 
     while (window.isOpen()) {
         sf::Event event;
@@ -1374,27 +1459,47 @@ int main() {
         voiture.activerFrein(false);
 
         if (autonomousMode) {
-            // Mode autonome : calcul de l'angle de braquage et accélération constante
-            etat = 1; // Toujours accélérer en mode autonome
-            angle_braquage = calculateSteeringAngle(voiture, center, idealRadius);
+            // Mode autonome : calcul de l'angle de braquage adaptatif
+            
+            // Trouver le prochain waypoint
+            currentWaypoint = findNextWaypoint(voiture, waypoints, currentWaypoint);
+            
+            // Calculer l'angle de braquage adaptatif
+            angle_braquage = calculateAdaptiveSteeringAngle(voiture, waypoints[currentWaypoint]);
+            
+            // Ajuster la vitesse en fonction du rayon de courbure
+            float speedFactor = waypoints[currentWaypoint].targetRadius / 250.0f;
+            speedFactor = std::max(0.3f, std::min(1.0f, speedFactor)); // Limiter entre 0.3 et 1.0
+            
+            // Accélérer plus dans les lignes droites, moins dans les virages
+            etat = 1;
             
             // Vérifier si on est sur l'herbe, et ajuster si nécessaire
             sf::Vector2f carPos(voiture.getX(), voiture.getY());
             if (isOnGrass(carPos, track, 50)) {
-                // Si sur l'herbe, tourner vers le centre
-                float dx = center.x - voiture.getX();
-                float dy = center.y - voiture.getY();
-                float angleToCenter = atan2(dy, dx) * 180.0 / M_PI;
-                float carAngle = voiture.getAngle();
-                float angleDiff = angleToCenter - carAngle;
+                // Si sur l'herbe, chercher le waypoint le plus proche qui est sur la piste
+                float minDist = 1000000;
+                int closestWaypoint = currentWaypoint;
                 
-                // Normaliser la différence d'angle
-                while (angleDiff > 180) angleDiff -= 360;
-                while (angleDiff < -180) angleDiff += 360;
+                for (int i = 0; i < waypoints.size(); i++) {
+                    float dx = waypoints[i].position.x - carPos.x;
+                    float dy = waypoints[i].position.y - carPos.y;
+                    float dist = dx*dx + dy*dy;
+                    
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestWaypoint = i;
+                    }
+                }
                 
-                // Déterminer la direction de braquage
-                angle_braquage = (angleDiff > 0) ? 1.0 : -1.0;
+                currentWaypoint = closestWaypoint;
+                angle_braquage = calculateAdaptiveSteeringAngle(voiture, waypoints[currentWaypoint]);
+                etat = 1; // Accélérer pour sortir de l'herbe
             }
+            
+            // Visualiser la direction cible
+            targetLine[0].position = sf::Vector2f(voiture.getX(), voiture.getY());
+            targetLine[1].position = waypoints[currentWaypoint].position;
         } else {
             // Mode manuel - contrôles utilisateur
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
@@ -1458,8 +1563,8 @@ int main() {
             std::ostringstream oss;
             oss << "Vitesse : " << std::fixed << std::setprecision(2) << voiture.getVitesse() << " m/s\n"
                 << "Angle   : " << std::fixed << std::setprecision(2) << voiture.getAngle() << " degres\n"
-                << "Frein a main : " << (freinMainActif ? "OUI" : "non") << "\n"
-                << "Mode : " << (autonomousMode ? "AUTONOME (A pour désactiver)" : "MANUEL (A pour activer)");
+                << "Waypoint actuel : " << currentWaypoint << "/" << waypoints.size() << "\n"
+                << "Mode : " << (autonomousMode ? "AUTONOME (A pour desactiver)" : "MANUEL (A pour activer)");
             hudText.setString(oss.str());
 
             tempsDepuisDernierUpdateTexte = 0.0f;
@@ -1468,6 +1573,19 @@ int main() {
         window.clear();
         window.draw(grass, grassState);
         window.draw(track, trackState);
+        
+        // Afficher les waypoints
+        if (autonomousMode) {
+            for (int i = 0; i < waypoints.size(); i++) {
+                waypointMarker.setPosition(waypoints[i].position);
+                waypointMarker.setFillColor((i == currentWaypoint) ? sf::Color::Red : sf::Color::Yellow);
+                window.draw(waypointMarker);
+            }
+            
+            // Afficher la ligne vers le waypoint cible
+            window.draw(targetLine, 2, sf::Lines);
+        }
+        
         window.draw(carSprite);
         window.draw(directionIndicator);
         window.draw(hudText);
