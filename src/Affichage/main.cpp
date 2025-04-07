@@ -1,276 +1,4 @@
-//version simple du circuit avec les couleurs vertes et grises
-/*#include <SFML/Graphics.hpp>
-#include <vector>
-#include <cmath>
-
-// Fonction pour créer la zone d'herbe autour de la piste et au centre
-sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
-    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
-
-    sf::Vector2f center(400, 300); // Centre de la piste
-
-    for (size_t i = 0; i < track.getVertexCount(); i++) {
-        sf::Vector2f pos = track[i].position;
-        sf::Vector2f direction = pos - center;
-        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-
-        if (length != 0) {
-            direction /= length; // Normaliser
-        }
-
-        // Étendre la bordure extérieure pour l'herbe
-        grass[i].position = pos + direction * extraWidth;
-        grass[i].color = sf::Color(34, 139, 34); // Vert foncé
-    }
-
-    // Fermer le circuit
-    grass[track.getVertexCount()] = grass[0];
-    grass[track.getVertexCount() + 1] = grass[1];
-
-    return grass;
-}
-
-// Fonction pour créer la zone centrale en herbe
-sf::VertexArray createInnerGrass(float centerX, float centerY, float radiusX, float radiusY, float trackWidth) {
-    const int numPoints = 100;
-    sf::VertexArray innerGrass(sf::TriangleFan, numPoints + 2);
-    innerGrass[0].position = sf::Vector2f(centerX, centerY); // Centre du circuit
-    innerGrass[0].color = sf::Color(34, 139, 34); // Vert foncé
-
-    for (int i = 1; i <= numPoints + 1; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-        float rX = radiusX + 30 * std::sin(3 * angle); 
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x = centerX + (rX - trackWidth) * std::cos(angle);
-        float y = centerY + (rY - trackWidth) * std::sin(angle);
-
-        innerGrass[i].position = sf::Vector2f(x, y);
-        innerGrass[i].color = sf::Color(34, 139, 34); // Même couleur d'herbe
-    }
-
-    return innerGrass;
-}
-
-// Fonction pour créer une piste fermée
-sf::VertexArray createTrack() {
-    const int numPoints = 100;
-    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
-
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-    float trackWidth = 50;
-
-    for (int i = 0; i < numPoints; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rY - trackWidth) * std::sin(angle);
-        
-        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rY + trackWidth) * std::sin(angle);
-
-        track[i * 2].position = sf::Vector2f(x1, y1);
-        track[i * 2].color = sf::Color(100, 100, 100);
-        
-        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
-        track[i * 2 + 1].color = sf::Color(50, 50, 50);
-    }
-
-    // Fermer le circuit
-    track[numPoints * 2 - 2].position = track[0].position;
-    track[numPoints * 2 - 1].position = track[1].position;
-
-    return track;
-}
-
-int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-    window.setFramerateLimit(60);
-
-    sf::VertexArray track = createTrack();
-    sf::VertexArray grass = createGrass(track, 40);
-    sf::VertexArray innerGrass = createInnerGrass(400, 300, 250, 150, 50);
-
-    sf::Texture carTexture;
-    if (!carTexture.loadFromFile("../../assets/car.png")) {
-        return -1;
-    }
-
-    sf::Sprite carSprite;
-    carSprite.setTexture(carTexture);
-    carSprite.setScale(0.1f, 0.1f);
-    carSprite.setPosition(375, 275);
-
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        window.clear();
-        window.draw(grass); 
-        window.draw(innerGrass); 
-        window.draw(track);
-        window.draw(carSprite);
-
-        window.display();
-    }
-
-    return 0;
-}
-*/
-
-// version avec les forces et les modeles 
-/*#include <SFML/Graphics.hpp>
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include "VoitureRC.hpp"
-#include "ForceMotrice.hpp"
-
-#define DT 0.1  // Pas de temps pour la simulation
-
-// Fonction pour créer la zone d'herbe autour de la piste et au centre
-sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
-    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
-
-    sf::Vector2f center(400, 300); // Centre de la piste
-
-    for (size_t i = 0; i < track.getVertexCount(); i++) {
-        sf::Vector2f pos = track[i].position;
-        sf::Vector2f direction = pos - center;
-        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-
-        if (length != 0) {
-            direction /= length; // Normaliser
-        }
-
-        // Étendre la bordure extérieure pour l'herbe
-        grass[i].position = pos + direction * extraWidth;
-        grass[i].color = sf::Color(34, 139, 34); // Vert foncé
-    }
-
-    // Fermer le circuit
-    grass[track.getVertexCount()] = grass[0];
-    grass[track.getVertexCount() + 1] = grass[1];
-
-    return grass;
-}
-
-// Fonction pour créer la zone centrale en herbe
-sf::VertexArray createInnerGrass(float centerX, float centerY, float radiusX, float radiusY, float trackWidth) {
-    const int numPoints = 100;
-    sf::VertexArray innerGrass(sf::TriangleFan, numPoints + 2);
-    innerGrass[0].position = sf::Vector2f(centerX, centerY); // Centre du circuit
-    innerGrass[0].color = sf::Color(34, 139, 34); // Vert foncé
-
-    for (int i = 1; i <= numPoints + 1; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-        float rX = radiusX + 30 * std::sin(3 * angle); 
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x = centerX + (rX - trackWidth) * std::cos(angle);
-        float y = centerY + (rY - trackWidth) * std::sin(angle);
-
-        innerGrass[i].position = sf::Vector2f(x, y);
-        innerGrass[i].color = sf::Color(34, 139, 34); // Même couleur d'herbe
-    }
-
-    return innerGrass;
-}
-// Fonction pour créer une piste fermée
-sf::VertexArray createTrack() {
-    const int numPoints = 100;
-    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
-
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-    float trackWidth = 50;
-
-    for (int i = 0; i < numPoints; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rY - trackWidth) * std::sin(angle);
-        
-        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rY + trackWidth) * std::sin(angle);
-
-        track[i * 2].position = sf::Vector2f(x1, y1);
-        track[i * 2].color = sf::Color(100, 100, 100);
-        
-        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
-        track[i * 2 + 1].color = sf::Color(50, 50, 50);
-    }
-
-    // Fermer le circuit
-    track[numPoints * 2 - 2].position = track[0].position;
-    track[numPoints * 2 - 1].position = track[1].position;
-
-    return track;
-}
-
-int main() {
-    sf::ContextSettings settings;
-    settings.depthBits = 24;
-    settings.stencilBits = 8;
-    settings.antialiasingLevel = 4;
-    settings.majorVersion = 2;  // OpenGL 2.1 (compatible avec WSL)
-    settings.minorVersion = 1;
-
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-    window.setFramerateLimit(60);
-
-    sf::VertexArray track = createTrack();
-
-    // Charger la texture de la voiture
-    sf::Texture carTexture;
-    if (!carTexture.loadFromFile("../../assets/car.png")) {
-        return -1;
-    }
-
-    // Initialisation du véhicule RC
-    VoitureRC voiture(3, 0.1);
-    ForceMotrice moteur(50.0);
-    voiture.ajouterForce(&moteur);
-
-    sf::Sprite carSprite;
-    carSprite.setTexture(carTexture);
-    carSprite.setScale(0.1f, 0.1f);
-    carSprite.setOrigin(carTexture.getSize().x / 2, carTexture.getSize().y / 2);
-
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        // Simulation de la dynamique du véhicule
-        voiture.mettreAJourEtat(DT);
-
-        // Mettre à jour l'affichage du véhicule
-        carSprite.setPosition(voiture.getX(), voiture.getY());
-        carSprite.setRotation(voiture.getPsi() * 180 / M_PI);  // Convertir en degrés
-
-        window.clear();
-        window.draw(track);
-        window.draw(carSprite);
-        window.display();
-    }
-
-    return 0;
-}
-*/
-
+/
 //version ameliorée avec les textures 
 /*
 #include <SFML/Graphics.hpp>
@@ -554,606 +282,8 @@ int main() {
 }
 */
 
-//test delimitation
-/*
-#include <SFML/Graphics.hpp>
-#include <vector>
-#include <cmath>
-#include <iostream>
-
-// Textures globales
-sf::Texture trackTexture, grassTexture, borderTexture;
-
-// Fonction pour charger les textures
-bool loadTextures() {
-    if (!trackTexture.loadFromFile("../../assets/track.png") ||
-        !grassTexture.loadFromFile("../../assets/grass.png") ||
-        !borderTexture.loadFromFile("../../assets/border.png")) {
-        return false;
-    }
-    return true;
-}
-
-// Fonction pour créer la zone d'herbe autour de la piste et au centre
-sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
-    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
-    sf::Vector2f center(400, 300);
-
-    for (size_t i = 0; i < track.getVertexCount(); i++) {
-        sf::Vector2f pos = track[i].position;
-        sf::Vector2f direction = pos - center;
-        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-
-        if (length != 0) {
-            direction /= length; // Normalisation
-        }
-
-        grass[i].position = pos + direction * extraWidth;
-        grass[i].texCoords = sf::Vector2f(pos.x, pos.y); // Appliquer les coordonnées UV
-    }
-
-    // Fermer la boucle
-    grass[track.getVertexCount()] = grass[0];
-    grass[track.getVertexCount() + 1] = grass[1];
-
-    return grass;
-}
-
-// Fonction pour créer la zone centrale en herbe
-sf::VertexArray createInnerGrass(float centerX, float centerY, float radiusX, float radiusY, float trackWidth) {
-    const int numPoints = 100;
-    sf::VertexArray innerGrass(sf::TriangleFan, numPoints + 2);
-    innerGrass[0].position = sf::Vector2f(centerX, centerY);
-
-    for (int i = 1; i <= numPoints + 1; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x = centerX + (rX - trackWidth) * std::cos(angle);
-        float y = centerY + (rY - trackWidth) * std::sin(angle);
-
-        innerGrass[i].position = sf::Vector2f(x, y);
-        innerGrass[i].texCoords = sf::Vector2f(x, y); // Appliquer les coordonnées UV
-    }
-
-    return innerGrass;
-}
-
-// Fonction pour créer la piste avec les bordures rouges et blanches
-sf::VertexArray createTrackWithBorders() {
-    const int numPoints = 100;
-    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
-    sf::VertexArray trackBorders(sf::TriangleStrip, numPoints * 2);  // Pour les bandes rouges et blanches
-
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-    float trackWidth = 50;
-
-    // Coordonnées des virages
-    float angleStep = M_PI / 50;  // Étapes d'angle plus petites pour les virages plus nets
-
-    for (int i = 0; i < numPoints; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rY - trackWidth) * std::sin(angle);
-
-        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rY + trackWidth) * std::sin(angle);
-
-        track[i * 2].position = sf::Vector2f(x1, y1);
-        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
-
-        // Ajouter les bandes rouges et blanches
-        if (i % 2 == 0) { // Bande rouge
-            trackBorders[i * 2].position = sf::Vector2f(x1, y1);
-            trackBorders[i * 2 + 1].position = sf::Vector2f(x2, y2);
-        } else {  // Bande blanche
-            trackBorders[i * 2].position = sf::Vector2f(x1 + 5, y1 + 5);
-            trackBorders[i * 2 + 1].position = sf::Vector2f(x2 + 5, y2 + 5);
-        }
-    }
-
-    return trackBorders;
-}
-
-int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-    window.setFramerateLimit(60);
-
-    // Charger les textures
-    if (!loadTextures()) {
-        std::cerr << "Erreur de chargement des textures !" << std::endl;
-        return -1;
-    }
-
-    // Créer le circuit avec les bordures
-    sf::VertexArray trackBorders = createTrackWithBorders();  // Déclarer ici
-    sf::VertexArray track = createTrackWithBorders();
-    sf::VertexArray grass = createGrass(track, 40);
-    sf::VertexArray innerGrass = createInnerGrass(400, 300, 250, 150, 50);
-
-    // Charger la texture de la voiture
-    sf::Texture carTexture;
-    if (!carTexture.loadFromFile("../../assets/car.png")) {
-        return -1;
-    }
-
-    sf::Sprite carSprite;
-    carSprite.setTexture(carTexture);
-    carSprite.setScale(0.1f, 0.1f);
-    carSprite.setPosition(375, 275);
-
-    // États pour appliquer les textures
-    sf::RenderStates trackState, grassState, borderState;
-    trackState.texture = &trackTexture;
-    grassState.texture = &grassTexture;
-    borderState.texture = &borderTexture;
-
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        window.clear();
-        window.draw(grass, grassState);    // Appliquer la texture de l'herbe
-        window.draw(innerGrass, grassState);
-        window.draw(track, trackState);    // Appliquer la texture de la route
-        window.draw(trackBorders, borderState);  // Appliquer les bandes rouges et blanches
-        window.draw(carSprite);
-
-        window.display();
-    }
-
-    return 0;
-}
-*/
-
-//version avec les force de nadir
-/*
-
-#include <SFML/Graphics.hpp>
-#include <vector>
-#include <cmath>
-#include <iostream>
-
-// Déclaration des textures
-sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
-
-// Fonction pour charger les textures
-bool loadTextures() {
-    if (!trackTexture.loadFromFile("../../assets/asphalt.jpg") ||
-        !grassTexture.loadFromFile("../../assets/grass.png") ||
-        !borderTexture.loadFromFile("../../assets/outer.png") ||
-        !carTexture.loadFromFile("../../assets/car.png")) {
-        return false;
-    }
-    return true;
-}
-
-// Fonction pour créer la zone d'herbe autour de la piste
-sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
-    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
-    sf::Vector2f center(400, 300);
-
-    for (size_t i = 0; i < track.getVertexCount(); i++) {
-        sf::Vector2f pos = track[i].position;
-        sf::Vector2f direction = pos - center;
-        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-
-        if (length != 0) {
-            direction /= length; // Normalisation
-        }
-
-        grass[i].position = pos + direction * extraWidth;
-        grass[i].texCoords = sf::Vector2f(pos.x, pos.y);
-    }
-
-    // Fermer la boucle
-    grass[track.getVertexCount()] = grass[0];
-    grass[track.getVertexCount() + 1] = grass[1];
-
-    return grass;
-}
-
-// Fonction pour créer une piste fermée
-sf::VertexArray createTrack() {
-    const int numPoints = 100;
-    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
-
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-    float trackWidth = 50;
-
-    for (int i = 0; i < numPoints; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rX - trackWidth) * std::sin(angle);
-
-        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rX + trackWidth) * std::sin(angle);
-
-        track[i * 2].position = sf::Vector2f(x1, y1);
-        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
-    }
-
-    // Fermer le circuit
-    track[numPoints * 2 - 2].position = track[0].position;
-    track[numPoints * 2 - 1].position = track[1].position;
-
-    return track;
-}
-
-// Vérifie si la voiture est sur l'herbe en fonction de sa position
-bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-
-    float dx = carPosition.x - centerX;
-    float dy = carPosition.y - centerY;
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    float outerRadius = std::max(radiusX, radiusY) + trackWidth;
-    float innerRadius = std::min(radiusX, radiusY) - trackWidth;
-
-    return (distance > outerRadius || distance < innerRadius);
-}
-
-int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-    window.setFramerateLimit(60);
-
-    if (!loadTextures()) {
-        std::cerr << "Erreur de chargement des textures !" << std::endl;
-        return -1;
-    }
-
-    sf::VertexArray track = createTrack();
-    sf::VertexArray grass = createGrass(track, 40);
-
-    sf::Sprite carSprite;
-    carSprite.setTexture(carTexture);
-    carSprite.setScale(0.15f, 0.15f);
-    carSprite.setPosition(100, 100);
-
-    // États pour appliquer les textures
-    sf::RenderStates trackState, grassState;
-    grassTexture.setRepeated(true);
-    trackTexture.setRepeated(true);
-    trackState.texture = &trackTexture;
-    grassState.texture = &grassTexture;
-
-    // Variables pour le déplacement de la voiture
-    sf::Vector2f carPosition = carSprite.getPosition();
-    float carSpeed = 2.0f;
-    float carAngle = 0.0f;
-    float turnSpeed = 2.0f;
-
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        // Gestion du déplacement autonome
-        if (isOnGrass(carPosition, track, 50)) {
-            carSpeed *= 0.95f;  // Réduction de la vitesse sur l'herbe
-        } else {
-            carSpeed = 2.0f;  // Retour à la vitesse normale sur la piste
-        }
-
-        carAngle += turnSpeed * 0.01f;  // Ajustement automatique de la direction
-        carPosition.x += carSpeed * std::cos(carAngle);
-        carPosition.y += carSpeed * std::sin(carAngle);
-        carSprite.setPosition(carPosition);
-        carSprite.setRotation(carAngle * 180 / M_PI);
-
-        window.clear();
-        window.draw(grass, grassState);
-        window.draw(track, trackState);
-        window.draw(carSprite);
-        window.display();
-    }
-
-    return 0;
-}
-*/
-
-//version 2.0 force de Nadir  avec les touches clavier 
-
-// #include <SFML/Graphics.hpp>
-// #include "map.hpp"
-// #include "voiture.hpp"
-// #include <math.h>
-
-// int main() {
-//     sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-//     window.setFramerateLimit(60);
-
-//     Map map;
-//     if (!map.loadTextures()) {
-//         return -1;
-//     }
-
-//     Voiture voiture;
-//     sf::Texture carTexture;
-//     if (!carTexture.loadFromFile("../../assets/car.png")) {
-//         return -1;
-//     }
-//     voiture.sprite.setTexture(carTexture);
-//     voiture.sprite.setScale(0.15f, 0.15f);
-//     voiture.sprite.setPosition(625, 300);
-
-//     // États pour appliquer les textures
-//     sf::RenderStates trackState, grassState;
-//     map.grassTexture.setRepeated(true);
-//     map.trackTexture.setRepeated(true);
-//     trackState.texture = &map.trackTexture;
-//     grassState.texture = &map.grassTexture;
-
-//     // Variables for car control
-//     float acceleration = 0.2f;  // Acceleration factor
-//     float deceleration = 0.1f;  // Deceleration factor
-//     float maxSpeed = 5.0f;      // Maximum speed
-//     float turnSpeed = 3.0f;     // Turning speed
-//     float speed = 0.0f;         // Current speed
-
-//     while (window.isOpen()) {
-//         sf::Event event;
-//         while (window.pollEvent(event)) {
-//             if (event.type == sf::Event::Closed)
-//                 window.close();
-//         }
-
-//         // Handle user input for car control
-//         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-//             speed += acceleration;  // Accelerate
-//             if (speed > maxSpeed) speed = maxSpeed;
-//         } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-//             speed -= deceleration;  // Decelerate
-//             if (speed < -maxSpeed / 2) speed = -maxSpeed / 2;  // Reverse speed limit
-//         } else {
-//             // Gradually reduce speed when no input is given
-//             if (speed > 0) {
-//                 speed -= deceleration;
-//                 if (speed < 0) speed = 0;
-//             } else if (speed < 0) {
-//                 speed += deceleration;
-//                 if (speed > 0) speed = 0;
-//             }
-//         }
-
-//         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-//             voiture.angle -= turnSpeed * (speed / maxSpeed)/10;  // Turn left
-//         }
-//         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-//             voiture.angle += turnSpeed * (speed / maxSpeed)/10;  // Turn right
-//         }
-
-//         // Update car position based on speed and angle
-//         voiture.position.x -= speed * sin(voiture.angle);
-//         voiture.position.y -= speed * cos(voiture.angle);
-
-//         // Empêcher la voiture de sortir du cadre de la fenêtre
-//         float carWidth = voiture.sprite.getGlobalBounds().width;
-//         float carHeight = voiture.sprite.getGlobalBounds().height;
-
-//         if (voiture.position.x < 0)
-//             voiture.position.x = 0;
-//         if (voiture.position.x > window.getSize().x - carWidth)
-//             voiture.position.x = window.getSize().x - carWidth;
-
-//         if (voiture.position.y < 0)
-//             voiture.position.y = 0;
-//         if (voiture.position.y > window.getSize().y - carHeight)
-//             voiture.position.y = window.getSize().y - carHeight;
-
-
-//         // Update car sprite position and rotation
-//         voiture.sprite.setPosition(voiture.position);
-//         voiture.sprite.setRotation(voiture.angle * 180 / M_PI);
-
-//         // Render the scene
-//         window.clear();
-//         window.draw(map.grass, grassState);
-//         window.draw(map.track, trackState);
-//         window.draw(voiture.sprite);
-//         window.display();
-//     }
-
-//     return 0;
-// }
-
-/*
-
-//Version force de Nadir et contrôle du déplacement (On peut supprimer car code corrigé au dessus)
-
-#include <SFML/Graphics.hpp>
-#include <vector>
-#include <cmath>
-#include <iostream>
-
-// Déclaration des textures
-sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
-
-// Fonction pour charger les textures
-bool loadTextures() {
-    if (!trackTexture.loadFromFile("../../assets/asphalt.jpg") ||
-        !grassTexture.loadFromFile("../../assets/grass.png") ||
-        !borderTexture.loadFromFile("../../assets/outer.png") ||
-        !carTexture.loadFromFile("../../assets/car.png")) {
-        return false;
-    }
-    return true;
-}
-
-// Fonction pour créer la zone d'herbe autour de la piste
-sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
-    sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
-    sf::Vector2f center(400, 300);
-
-    for (size_t i = 0; i < track.getVertexCount(); i++) {
-        sf::Vector2f pos = track[i].position;
-        sf::Vector2f direction = pos - center;
-        float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
-
-        if (length != 0) {
-            direction /= length; // Normalisation
-        }
-
-        grass[i].position = pos + direction * extraWidth;
-        grass[i].texCoords = sf::Vector2f(pos.x, pos.y);
-    }
-
-    // Fermer la boucle
-    grass[track.getVertexCount()] = grass[0];
-    grass[track.getVertexCount() + 1] = grass[1];
-
-    return grass;
-}
-
-// Fonction pour créer une piste fermée
-sf::VertexArray createTrack() {
-    const int numPoints = 100;
-    sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
-
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-    float trackWidth = 50;
-
-    for (int i = 0; i < numPoints; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rX - trackWidth) * std::sin(angle);
-
-        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rX + trackWidth) * std::sin(angle);
-
-        track[i * 2].position = sf::Vector2f(x1, y1);
-        track[i * 2 + 1].position = sf::Vector2f(x2, y2);
-    }
-
-    // Fermer le circuit
-    track[numPoints * 2 - 2].position = track[0].position;
-    track[numPoints * 2 - 1].position = track[1].position;
-
-    return track;
-}
-
-// Vérifie si la voiture est sur l'herbe en fonction de sa position
-bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-
-    float dx = carPosition.x - centerX;
-    float dy = carPosition.y - centerY;
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    float outerRadius = std::max(radiusX, radiusY) + trackWidth;
-    float innerRadius = std::min(radiusX, radiusY) - trackWidth;
-
-    return (distance > outerRadius || distance < innerRadius);
-}
-
-int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation");
-    window.setFramerateLimit(60);
-
-    if (!loadTextures()) {
-        std::cerr << "Erreur de chargement des textures !" << std::endl;
-        return -1;
-    }
-
-    sf::VertexArray track = createTrack();
-    sf::VertexArray grass = createGrass(track, 40);
-
-    sf::Sprite carSprite;
-    carSprite.setTexture(carTexture);
-    carSprite.setScale(0.2f, 0.2f);
-    carSprite.setPosition(100, 100);
-
-    // États pour appliquer les textures
-    sf::RenderStates trackState, grassState;
-    grassTexture.setRepeated(true);
-    trackTexture.setRepeated(true);
-    trackState.texture = &trackTexture;
-    grassState.texture = &grassTexture;
-
-    // Variables pour le déplacement de la voiture
-    sf::Vector2f carPosition = carSprite.getPosition();
-    float carSpeed = 0.0f;
-    float maxSpeed = 4.0f;
-    float acceleration = 0.1f;
-    float friction = 0.98f;
-    float turnSpeed = 1.0f;
-    float carAngle = 0.0f;
-
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        // Gestion des touches pour le contrôle
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-            carSpeed += acceleration;  // Accélère
-            if (carSpeed > maxSpeed)
-                carSpeed = maxSpeed;
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-            carSpeed -= acceleration;  // Freine
-            if (carSpeed < -maxSpeed / 2)
-                carSpeed = -maxSpeed / 2;  // Marche arrière plus lente
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            carAngle -= turnSpeed * (carSpeed / maxSpeed);  // Tourne à gauche
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            carAngle += turnSpeed * (carSpeed / maxSpeed);  // Tourne à droite
-        }
-
-        // Appliquer friction (ralentissement naturel)
-        carSpeed *= friction;
-
-        // Déplacer la voiture en fonction de l'angle et de la vitesse
-        carPosition.x -= carSpeed * std::sin(carAngle);
-        carPosition.y -= carSpeed * std::cos(carAngle);
-        carSprite.setPosition(carPosition);
-        carSprite.setRotation(carAngle * 180 / M_PI);
-
-        // Vérifier si la voiture est sur l'herbe
-        if (isOnGrass(carPosition, track, 50)) {
-            carSpeed *= 0.8f;  // Ralentissement sur l'herbe
-        }
-
-        window.clear();
-        window.draw(grass, grassState);
-        window.draw(track, trackState);
-        window.draw(carSprite);
-        window.display();
-    }
-
-    return 0;
-}
-*/
-
 // Version 3.0 de Nadir ca va etre un banger
+/*
 #include <SFML/Graphics.hpp>
 #include "force.hpp"  // Contient déjà voiture.hpp
 #include "map.hpp"
@@ -1400,7 +530,7 @@ int main() {
 
     // Sprite de la voiture
     sf::Texture carTexture;
-    if (!carTexture.loadFromFile("../../assets/car.png")) return -1;
+    if (!carTexture.loadFromFile("../../assets/car_pink.png")) return -1;
     sf::Sprite carSprite;
     carSprite.setTexture(carTexture);
     carSprite.setScale(0.15f, 0.15f);
@@ -1589,6 +719,230 @@ int main() {
         window.draw(carSprite);
         window.draw(directionIndicator);
         window.draw(hudText);
+        window.display();
+    }
+
+    return 0;
+}
+*/
+
+//version pour le menu
+#include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
+#include "map.hpp"
+#include <iostream>
+#include <vector>
+
+enum GameState { MENU, TRANSITION, SIMULATION };
+
+struct SelectableItem {
+    sf::Sprite sprite;
+    sf::RectangleShape border;
+    int id;
+    bool selected = false;
+    bool isHovered(const sf::Vector2f& mousePos) {
+        return sprite.getGlobalBounds().contains(mousePos);
+    }
+};
+
+int main() {
+    const int WIN_WIDTH = 1000, WIN_HEIGHT = 700;
+    sf::RenderWindow window(sf::VideoMode(WIN_WIDTH, WIN_HEIGHT), "PolyRacing Game", sf::Style::Close);
+    window.setFramerateLimit(60);
+    window.setView(sf::View(sf::FloatRect(0, 0, WIN_WIDTH, WIN_HEIGHT)));
+
+    sf::Font font;
+    font.loadFromFile("../../assets/Roboto-Regular.ttf");
+
+    sf::Texture bgTexture;
+    bgTexture.loadFromFile("../../assets/accueil.png");
+    sf::Sprite background(bgTexture);
+    sf::Vector2u textureSize = bgTexture.getSize();
+    sf::Vector2u windowSize = window.getSize();
+    float scaleX = static_cast<float>(windowSize.x) / textureSize.x;
+    float scaleY = static_cast<float>(windowSize.y) / textureSize.y;
+    background.setScale(scaleX, scaleY);
+
+    sf::SoundBuffer hoverBuffer, selectBuffer;
+    hoverBuffer.loadFromFile("../../assets/sound.wav");
+    selectBuffer.loadFromFile("../../assets/select.wav");
+    sf::Sound hoverSound(hoverBuffer);
+    sf::Sound selectSound(selectBuffer);
+
+    GameState state = MENU;
+    int selectedMap = -1, selectedCar = -1;
+    bool hoverPlayedMap[5] = {}, hoverPlayedCar[5] = {};
+
+    std::vector<std::string> mapPreviewPaths = {
+        "../../assets/suv.png", "../../assets/suv.png", "../../assets/suv.png",
+        "../../assets/suv.png", "../../assets/suv.png"
+    };
+    std::vector<std::string> carPreviewPaths = {
+        "../../assets/car.png", "../../assets/car_blue.png", "../../assets/car_pink.png",
+        "../../assets/car_gray.png", "../../assets/car_green.png"
+    };
+    std::vector<std::string> carTexturePaths = carPreviewPaths;
+
+    std::vector<sf::Texture> mapTextures(5), carTextures(5);
+    std::vector<SelectableItem> mapItems, carItems;
+
+    for (int i = 0; i < 5; ++i) {
+        mapTextures[i].loadFromFile(mapPreviewPaths[i]);
+        carTextures[i].loadFromFile(carPreviewPaths[i]);
+
+        SelectableItem m, c;
+        m.sprite.setTexture(mapTextures[i]);
+        m.sprite.setScale(0.5f, 0.5f);
+        m.sprite.setPosition(60 + i * 180, 120);
+        m.border.setSize({m.sprite.getGlobalBounds().width, m.sprite.getGlobalBounds().height});
+        m.border.setFillColor(sf::Color::Transparent);
+        m.border.setOutlineThickness(3);
+        m.border.setOutlineColor(sf::Color::Transparent);
+        m.border.setPosition(m.sprite.getPosition());
+        m.id = i + 1;
+        mapItems.push_back(m);
+
+        c.sprite.setTexture(carTextures[i]);
+        c.sprite.setScale(0.25f, 0.25f);
+        c.sprite.setPosition(60 + i * 180, 380);
+        c.border.setSize({c.sprite.getGlobalBounds().width, c.sprite.getGlobalBounds().height});
+        c.border.setFillColor(sf::Color::Transparent);
+        c.border.setOutlineThickness(3);
+        c.border.setOutlineColor(sf::Color::Transparent);
+        c.border.setPosition(c.sprite.getPosition());
+        c.id = i;
+        carItems.push_back(c);
+    }
+
+    sf::Text gameTitle("PolyRacing Game", font, 40);
+    gameTitle.setPosition(320, 10);
+    gameTitle.setFillColor(sf::Color::White);
+
+    sf::Text title("Selectionnez une carte et une voiture", font, 24);
+    title.setPosition(60, 60);
+    title.setFillColor(sf::Color::White);
+
+    sf::Text goText("GO JOUER", font, 20);
+    goText.setFillColor(sf::Color::White);
+    goText.setPosition(830, 630);
+
+    sf::RectangleShape goButton(sf::Vector2f(140, 40));
+    goButton.setPosition(820, 620);
+    goButton.setFillColor(sf::Color(70, 150, 70));
+    goButton.setOutlineThickness(2);
+    goButton.setOutlineColor(sf::Color::White);
+
+    sf::RectangleShape transitionOverlay(sf::Vector2f(WIN_WIDTH, WIN_HEIGHT));
+    transitionOverlay.setFillColor(sf::Color::Black);
+    float transitionAlpha = 0.0f;
+    bool transitionDone = false;
+
+    Map map;
+    sf::Texture carTexture;
+    sf::Sprite carSprite;
+    carSprite.setScale(0.15f, 0.15f);
+    sf::RenderStates trackState, grassState;
+
+    sf::Clock transitionClock;
+
+    while (window.isOpen()) {
+        sf::Event event;
+        sf::Vector2f mousePos(sf::Mouse::getPosition(window));
+
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+
+            if (state == MENU && event.type == sf::Event::MouseButtonPressed) {
+                for (int i = 0; i < 5; ++i) {
+                    if (mapItems[i].isHovered(mousePos)) {
+                        selectedMap = mapItems[i].id;
+                        selectSound.play();
+                        for (auto& m : mapItems) m.selected = false;
+                        mapItems[i].selected = true;
+                    }
+                    if (carItems[i].isHovered(mousePos)) {
+                        selectedCar = carItems[i].id;
+                        selectSound.play();
+                        for (auto& c : carItems) c.selected = false;
+                        carItems[i].selected = true;
+                    }
+                }
+
+                if (selectedMap > 0 && selectedCar >= 0 &&
+                    goButton.getGlobalBounds().contains(mousePos)) {
+                    if (!map.loadTextures(selectedMap)) return -1;
+                    if (!carTexture.loadFromFile(carTexturePaths[selectedCar])) return -1;
+                    carSprite.setTexture(carTexture);
+                    map.track = map.createTrack(selectedMap);
+                    map.grass = sf::VertexArray(sf::Quads, 4);
+                    map.grass[0].position = {0, 0};
+                    map.grass[1].position = {1000, 0};
+                    map.grass[2].position = {1000, 700};
+                    map.grass[3].position = {0, 700};
+                    grassState.texture = &map.grassTexture;
+                    trackState.texture = &map.trackTexture;
+                    carSprite.setPosition(625, 300);
+                    transitionAlpha = 0;
+                    transitionOverlay.setFillColor(sf::Color(0, 0, 0, 0));
+                    state = TRANSITION;
+                    transitionClock.restart();
+                }
+            }
+        }
+
+        window.clear();
+        if (state == MENU) {
+            window.draw(background);
+            window.draw(gameTitle);
+            window.draw(title);
+
+            for (int i = 0; i < 5; ++i) {
+                auto& m = mapItems[i];
+                auto& c = carItems[i];
+
+                m.border.setOutlineColor(m.selected ? sf::Color::Yellow :
+                    (m.isHovered(mousePos) ? sf::Color::Green : sf::Color::Transparent));
+                c.border.setOutlineColor(c.selected ? sf::Color::Yellow :
+                    (c.isHovered(mousePos) ? sf::Color::Cyan : sf::Color::Transparent));
+
+                if (m.isHovered(mousePos) && !hoverPlayedMap[i]) {
+                    hoverSound.play(); hoverPlayedMap[i] = true;
+                } else if (!m.isHovered(mousePos)) hoverPlayedMap[i] = false;
+
+                if (c.isHovered(mousePos) && !hoverPlayedCar[i]) {
+                    hoverSound.play(); hoverPlayedCar[i] = true;
+                } else if (!c.isHovered(mousePos)) hoverPlayedCar[i] = false;
+
+                window.draw(m.sprite); window.draw(m.border);
+                window.draw(c.sprite); window.draw(c.border);
+            }
+
+            if (selectedMap > 0 && selectedCar >= 0) {
+                window.draw(goButton);
+                window.draw(goText);
+            }
+
+        } else if (state == TRANSITION) {
+            window.draw(map.grass, grassState);
+            window.draw(map.track, trackState);
+            window.draw(carSprite);
+
+            float elapsed = transitionClock.getElapsedTime().asSeconds();
+            if (elapsed < 1.0f) {
+                transitionAlpha = 255 * (1 - elapsed);
+                transitionOverlay.setFillColor(sf::Color(0, 0, 0, static_cast<sf::Uint8>(transitionAlpha)));
+                window.draw(transitionOverlay);
+            } else {
+                state = SIMULATION;
+            }
+
+        } else if (state == SIMULATION) {
+            window.draw(map.grass, grassState);
+            window.draw(map.track, trackState);
+            window.draw(carSprite);
+        }
+
         window.display();
     }
 
