@@ -1209,52 +1209,57 @@ sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
 }
 
 // Fonction pour créer une piste fermée et extraire ses points médians
-std::pair<sf::VertexArray, std::vector<Waypoint>> createTrackWithWaypoints() {
+std::tuple<sf::VertexArray, std::vector<Waypoint>, float> createTrackWithWaypoints() {
     const int numPoints = 100;
     sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
     std::vector<Waypoint> waypoints;
     
+    float metersPerPixel = 1.0f / 10.0f;  // 1m = 10px
     float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-    float trackWidth = 50;
+    float radiusX = 25.0f;  // en mètres
+    float radiusY = 15.0f;  // en mètres
+    float trackWidth = 5.0f; // largeur piste en mètres
 
-    // Générer les points de la piste et les waypoints
+    float maxDistance = 0.0f;
+
     for (int i = 0; i < numPoints; i++) {
         float angle = (i / (float)numPoints) * 2 * M_PI;
 
-        float rX = radiusX + 30 * std::sin(3 * angle);
-        float rY = radiusY + 20 * std::cos(2 * angle);
+        float rX = radiusX + 3.0f * std::sin(3 * angle);  // +/- 3m de variation
+        float rY = radiusY + 2.0f * std::cos(2 * angle);
 
-        float x1 = centerX + (rX - trackWidth) * std::cos(angle);
-        float y1 = centerY + (rY - trackWidth) * std::sin(angle);
-        
-        float x2 = centerX + (rX + trackWidth) * std::cos(angle);
-        float y2 = centerY + (rY + trackWidth) * std::sin(angle);
+        float x1 = centerX + (rX - trackWidth) * std::cos(angle) / metersPerPixel;
+        float y1 = centerY + (rY - trackWidth) * std::sin(angle) / metersPerPixel;
 
-        // Définir les points de la piste
+        float x2 = centerX + (rX + trackWidth) * std::cos(angle) / metersPerPixel;
+        float y2 = centerY + (rY + trackWidth) * std::sin(angle) / metersPerPixel;
+
         track[i * 2].position = sf::Vector2f(x1, y1);
         track[i * 2 + 1].position = sf::Vector2f(x2, y2);
-        
-        // Calculer le point médian pour le waypoint
-        if (i % 5 == 0) {  // Prendre un waypoint tous les 5 points pour ne pas surcharger
+
+        // Waypoints (médian de la route)
+        if (i % 5 == 0) {
             float midX = (x1 + x2) / 2;
             float midY = (y1 + y2) / 2;
-            
-            // Calculer le rayon de courbure à ce point
-            // (plus petit dans les virages serrés, plus grand dans les parties droites)
+
             float curvature = std::abs(std::sin(3 * angle)) + std::abs(std::cos(2 * angle));
             float targetRadius = rX * (1.0f - 0.3f * curvature);
-            
+
             waypoints.push_back({sf::Vector2f(midX, midY), targetRadius});
         }
+
+        // Mesurer la distance max pour limite extérieure
+        float dist1 = std::hypot(x1 - centerX, y1 - centerY);
+        float dist2 = std::hypot(x2 - centerX, y2 - centerY);
+        maxDistance = std::max({maxDistance, dist1, dist2});
     }
 
-    // Fermer le circuit
     track[numPoints * 2 - 2].position = track[0].position;
     track[numPoints * 2 - 1].position = track[1].position;
 
-    return {track, waypoints};
+    return {track, waypoints, maxDistance};
 }
+
 
 // Vérifie si la voiture est sur l'herbe en fonction de sa position (inchangé)
 bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
@@ -1270,6 +1275,30 @@ bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, fl
 
     return (distance > outerRadius || distance < innerRadius);
 }
+
+// Fonction pour créer la zone centrale en herbe
+sf::VertexArray createInnerGrass(float centerX, float centerY, float radiusX, float radiusY, float trackWidth) {
+    const int numPoints = 100;
+    sf::VertexArray innerGrass(sf::TriangleFan, numPoints + 2);
+    innerGrass[0].position = sf::Vector2f(centerX, centerY); // Centre du circuit
+    innerGrass[0].color = sf::Color(34, 139, 34); // Vert foncé
+
+    for (int i = 1; i <= numPoints + 1; i++) {
+        float angle = (i / (float)numPoints) * 2 * M_PI;
+        float rX = radiusX + 30 * std::sin(3 * angle); 
+        float rY = radiusY + 20 * std::cos(2 * angle);
+
+        float x = centerX + (rX - trackWidth) * std::cos(angle);
+        float y = centerY + (rY - trackWidth) * std::sin(angle);
+
+        innerGrass[i].position = sf::Vector2f(x, y);
+        innerGrass[i].color = sf::Color(34, 139, 34); // Même couleur d'herbe
+    }
+
+    return innerGrass;
+}
+
+
 
 // Normaliser un angle en radians entre -PI et PI
 float normalizeAngle(float angle) {
@@ -1375,7 +1404,7 @@ int main() {
     float tempsDepuisDernierUpdateTexte = 0.0f;
 
     // Créer le circuit avec waypoints
-    auto [track, waypoints] = createTrackWithWaypoints();
+    auto [track, waypoints, maxDistance] = createTrackWithWaypoints();
     sf::VertexArray grass = createGrass(track, 40);
 
     // Visualisation des waypoints
@@ -1403,7 +1432,7 @@ int main() {
     if (!carTexture.loadFromFile("../../assets/car.png")) return -1;
     sf::Sprite carSprite;
     carSprite.setTexture(carTexture);
-    carSprite.setScale(0.15f, 0.15f);
+    carSprite.setScale(0.12f, 0.12f);
 
     // Triangle de direction
     sf::ConvexShape directionIndicator;
@@ -1422,8 +1451,10 @@ int main() {
     grassState.texture = &map.grassTexture;
 
     // Voiture et forces
-    Voiture voiture(625, 300, 0, 20.0, 0.3); // x, y, angle, masse, empattement
-    ForceMotrice moteur(600000.0, 200.0);
+    Voiture voiture(150, 300, 0, 20.0, 0.3); // x, y, angle, masse, empattement
+    //ForceMotrice moteur(100000.0, 80.0);
+    ForceMotriceProgressive moteur(10000.0, 10.0); // 5 m/s² atteints en 3 secondes
+
     ForceFrottement frottement(0.02);
     ForceFreinage frein(0.3);
     ForceAerodynamique air(0.0072);
@@ -1504,7 +1535,12 @@ int main() {
             // Mode manuel - contrôles utilisateur
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
                 etat = 1; // Accélère
+                voiture.setAccelerationActive(true);
+            } else {
+                voiture.setAccelerationActive(false);
             }
+            
+            
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
                 voiture.activerFrein(true);
                 etat = -1; // Frein
@@ -1519,6 +1555,8 @@ int main() {
         
         bool freinMainActif = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
         voiture.setFreinMainActif(freinMainActif);
+        voiture.setAccelerationActive(etat == 1); // pour que la force motrice sache si on accélère
+
 
         // === FORCES PHYSIQUES ===
         double fx = 0, fy = 0;
@@ -1578,7 +1616,7 @@ int main() {
         if (autonomousMode) {
             for (int i = 0; i < waypoints.size(); i++) {
                 waypointMarker.setPosition(waypoints[i].position);
-                waypointMarker.setFillColor((i == currentWaypoint) ? sf::Color::Red : sf::Color::Yellow);
+                waypointMarker.setFillColor((i == currentWaypoint) ? sf::Color::Red : sf::Color::Blue);
                 window.draw(waypointMarker);
             }
             

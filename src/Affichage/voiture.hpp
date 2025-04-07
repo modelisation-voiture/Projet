@@ -8,6 +8,8 @@ class Voiture {
         double empattement; // Distance entre roues avant et arrière
         bool frein_actif = false;
         bool frein_main_actif = false;
+        bool accelerationActive = false;
+
 
 
     
@@ -22,6 +24,9 @@ class Voiture {
         double calculerRayonCourbure(double angle_braquage_deg) const;
         bool isFreinActif() const { return frein_actif; }
         void activerFrein(bool actif) { frein_actif = actif; }
+
+        void setAccelerationActive(bool value) { accelerationActive = value; }
+        bool isAccelerationActive() const { return accelerationActive; }
 
         
     
