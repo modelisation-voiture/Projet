@@ -1,4 +1,3 @@
-/*
 #ifndef MAP_HPP
 #define MAP_HPP
 
@@ -16,8 +15,9 @@ public:
 };
 
 #endif // MAP_HPP
-*/
 
+
+/*
 #ifndef MAP_HPP
 #define MAP_HPP
 
@@ -44,3 +44,4 @@ private:
 };
 
 #endif // MAP_HPP
+*/

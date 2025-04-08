@@ -1,4 +1,3 @@
-/*
 #include "map.hpp"
 #include <cmath>
 
@@ -9,13 +8,6 @@ Map::Map() {
 bool Map::loadTextures() {
     return trackTexture.loadFromFile("../../assets/asphalt.jpg") &&
            grassTexture.loadFromFile("../../assets/grass.png");
-}
-
-
-bool Map::loadTextures(const std::string& folderPath) {
-    return trackTexture.loadFromFile(folderPath + "asphalt.jpg") &&
-        grassTexture.loadFromFile(folderPath + "grass.png") &&
-        borderTexture.loadFromFile(folderPath + "border.png");
 }
         
 
@@ -55,9 +47,9 @@ bool Map::isOnGrass(const sf::Vector2f& position, float trackWidth) {
 
     return (distance > outerRadius || distance < innerRadius);
 }
-*/
 
 
+/*
 #include "map.hpp"
 #include <cmath>
 
@@ -200,3 +192,4 @@ sf::VertexArray Map::createTrackSpirale() {
     }
     return track;
 }
+*/
