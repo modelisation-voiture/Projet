@@ -35,42 +35,46 @@ public:
 
 // Force motrice à accélération progressive (sans vitesse max)
 class ForceMotriceProgressive : public Force {
-private:
-    double acceleration_max;              // Valeur cible (en m/s²)
-    mutable double acceleration_courante = 0.0;   // Accumulation (varie dans le temps)
-    double temps_montée;                  // Temps en secondes pour atteindre a_max
-    double coeff_montée;                  // a_max / temps_montée
-    double coeff_descente;                // Pour relâcher rapidement
-
-public:
-    ForceMotriceProgressive(double a_max = 5.0, double temps_montée = 3.0)
-        : acceleration_max(a_max), temps_montée(temps_montée) {
-        coeff_montée = acceleration_max / temps_montée;
-        coeff_descente = acceleration_max * 5;  // descente plus rapide
-    }
-
-    std::pair<double, double> calculer_force(const Voiture& voiture) const override {
-        // Simule un accélérateur progressif (appui ou relâchement)
-        // On suppose ici que la voiture accélère toujours quand ce moteur est actif
-        if (voiture.isAccelerationActive()) {
-            acceleration_courante += coeff_montée * 0.01; // avec dt = 0.01
-            if (acceleration_courante > acceleration_max)
-                acceleration_courante = acceleration_max;
-        } else {
-            acceleration_courante -= coeff_descente * 0.01;
-            if (acceleration_courante < 0.0)
-                acceleration_courante = 0.0;
+    private:
+        double acceleration_max;              
+        mutable double acceleration_courante = 0.0; 
+        double temps_montée;
+        double temps_descente;
+        double coeff_montée;
+        double coeff_descente;
+    
+    public:
+        ForceMotriceProgressive(double a_max = 10.0, double t_monte = 20.0, double t_descend = 10.0)
+            : acceleration_max(a_max), temps_montée(t_monte), temps_descente(t_descend) {
+            coeff_montée = acceleration_max / temps_montée;
+            coeff_descente = 10 * acceleration_max / temps_descente;
+        }
+    
+        std::pair<double, double> calculer_force(const Voiture& voiture) const override {
+            if (voiture.isAccelerationActive()) {
+                acceleration_courante += coeff_montée * 0.01;
+                if (acceleration_courante > acceleration_max)
+                    acceleration_courante = acceleration_max;
+            } else {
+                acceleration_courante -= coeff_descente * 0.001;
+                if (acceleration_courante < 0.0)
+                    acceleration_courante = 0.0;
+            }
+    
+            double force = voiture.getMasse() * acceleration_courante;
+            double rad = voiture.getAngle() * M_PI / 180.0;
+    
+            double fx = -force * std::cos(rad);
+            double fy = -force * std::sin(rad);
+            return {fx, fy};
         }
 
-        double force = voiture.getMasse() * acceleration_courante;
-        double rad = voiture.getAngle() * M_PI / 180.0;
+        double getAccelerationCourante() const { return acceleration_courante; }
+        void setAccelerationCourante(double acc) { acceleration_courante = acc; }
+    };
 
-        double fx = -force * std::cos(rad);
-        double fy = -force * std::sin(rad);
-
-        return {fx, fy};
-    }
-};
+    
+    
 
 
 // === Force de Frottement ===

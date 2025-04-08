@@ -299,9 +299,9 @@ int main() {
     // Voiture et forces
     Voiture voiture(150, 300, 0, 20.0, 0.3); // x, y, angle, masse, empattement
     //ForceMotrice moteur(100000.0, 80.0);
-    ForceMotriceProgressive moteur(10000.0, 10.0); // 5 m/s² atteints en 3 secondes
-
-    ForceFrottement frottement(0.02);
+    // ForceMotriceProgressive moteur(10000.0, 10.0); // 5 m/s² atteints en 3 secondes
+    ForceMotriceProgressive moteur(1e4, 10.0, 20.0);
+    ForceFrottement frottement(0.0002);
     ForceFreinage frein(0.3);
     ForceAerodynamique air(0.0072);
     ForceVirage virage(0.0);
@@ -448,7 +448,11 @@ int main() {
             oss << "Vitesse : " << std::fixed << std::setprecision(2) << voiture.getVitesse() << " m/s\n"
                 << "Angle   : " << std::fixed << std::setprecision(2) << voiture.getAngle() << " degres\n"
                 << "Waypoint actuel : " << currentWaypoint << "/" << waypoints.size() << "\n"
-                << "Mode : " << (autonomousMode ? "AUTONOME (A pour desactiver)" : "MANUEL (A pour activer)");
+                << "Mode : " << (autonomousMode ? "AUTONOME (A pour desactiver)" : "MANUEL (A pour activer)")
+                << "Accél. moteur : " 
+                << std::fixed << std::setprecision(2) 
+                << moteur.getAccelerationCourante() << " m/s²\n";
+                
             hudText.setString(oss.str());
 
             tempsDepuisDernierUpdateTexte = 0.0f;
