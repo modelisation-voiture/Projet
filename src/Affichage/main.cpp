@@ -1,18 +1,113 @@
-// Version 3.0 de Nadir ca va etre un banger
+// Version 4.0 - Implémentation PID
 
 #include <SFML/Graphics.hpp>
 #include "force.hpp"  // Contient déjà voiture.hpp
 #include "map.hpp"
+#include "pid_controller.hpp"
 #include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <deque>
 
-// Déclaration des textures et structures de base (inchangé)
+// Déclaration des textures et structures de base
 sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
 
-// Fonction pour charger les textures (inchangé)
+// Structure pour le chronomètre
+struct Chronometre {
+    sf::Clock clock;
+    float tempsActuel = 0.0f;
+    float meilleurTemps = std::numeric_limits<float>::max();
+    int tours = 0;
+    bool estActif = false;
+    std::vector<float> tempsParTour;  // Pour stocker le temps de chaque tour
+    
+    void demarrer() {
+        clock.restart();
+        estActif = true;
+    }
+    
+    void arreter() {
+        if (estActif) {
+            tempsActuel = clock.getElapsedTime().asSeconds();
+            tempsParTour.push_back(tempsActuel);  // Enregistrer le temps de ce tour
+            if (tempsActuel < meilleurTemps) {
+                meilleurTemps = tempsActuel;
+            }
+            estActif = false;
+            tours++;
+        }
+    }
+    
+    float getTempsActuel() const {
+        if (estActif) {
+            return clock.getElapsedTime().asSeconds();
+        }
+        return tempsActuel;
+    }
+};
+
+// Structure pour la ligne de départ/arrivée
+struct LigneArrivee {
+    sf::RectangleShape ligne;
+    sf::Vector2f position;
+    float largeur;
+    bool voitureATraverse = false;
+    
+    LigneArrivee(float x, float y, float largeur, float epaisseur = 5.0f) 
+        : position(x, y), largeur(largeur) {
+        ligne.setSize(sf::Vector2f(largeur, epaisseur));
+        ligne.setPosition(x, y);
+        ligne.setFillColor(sf::Color(255, 255, 255, 200)); // Blanc semi-transparent
+        
+        // Motif damier
+        sf::Vector2f tileSize(20.0f, epaisseur);
+        int numTiles = static_cast<int>(largeur / tileSize.x);
+        
+        // Créer le motif damier comme une texture procédurale
+        sf::Image checkerPattern;
+        checkerPattern.create(2, 1);
+        checkerPattern.setPixel(0, 0, sf::Color::Black);
+        checkerPattern.setPixel(1, 0, sf::Color::White);
+        
+        sf::Texture checkerTexture;
+        checkerTexture.loadFromImage(checkerPattern);
+        checkerTexture.setRepeated(true);
+        
+        ligne.setTexture(&checkerTexture);
+        ligne.setTextureRect(sf::IntRect(0, 0, numTiles * 2, 1));
+    }
+    
+    bool verifierTraversee(const sf::Vector2f& posVoiture, const sf::Vector2f& posPrec, float voitureRadius = 20.0f) {
+        float ligneY = ligne.getPosition().y;
+        float ligneXDebut = ligne.getPosition().x;
+        float ligneXFin = ligneXDebut + largeur;
+        
+        // Vérifier si la voiture a traversé la ligne
+        bool estDansLargeur = posVoiture.x >= ligneXDebut && posVoiture.x <= ligneXFin;
+        bool aTraverseY = (posPrec.y < ligneY && posVoiture.y >= ligneY) || 
+                          (posPrec.y > ligneY && posVoiture.y <= ligneY);
+        
+        if (estDansLargeur && aTraverseY) {
+            bool aTraverse = !voitureATraverse;
+            voitureATraverse = true;
+            return aTraverse;
+        } else if (!estDansLargeur || std::abs(posVoiture.y - ligneY) > voitureRadius) {
+            voitureATraverse = false;
+        }
+        
+        return false;
+    }
+};
+
+// Structure pour représenter un point de trajectoire
+struct Waypoint {
+    sf::Vector2f position;
+    float targetRadius;  // Rayon de courbure cible à ce point
+};
+
+// Fonction pour charger les textures
 bool loadTextures() {
     if (!trackTexture.loadFromFile("../../assets/asphalt.jpg") ||
         !grassTexture.loadFromFile("../../assets/grass.png") ||
@@ -23,13 +118,7 @@ bool loadTextures() {
     return true;
 }
 
-// Structure pour représenter un point de trajectoire
-struct Waypoint {
-    sf::Vector2f position;
-    float targetRadius;  // Rayon de courbure cible à ce point
-};
-
-// Fonction pour créer la zone d'herbe autour de la piste (inchangé)
+// Fonction pour créer la zone d'herbe autour de la piste
 sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
     sf::VertexArray grass(sf::TriangleStrip, track.getVertexCount() + 2);
     sf::Vector2f center(400, 300);
@@ -54,7 +143,7 @@ sf::VertexArray createGrass(const sf::VertexArray& track, float extraWidth) {
     return grass;
 }
 
-// Fonction pour créer une piste fermée et extraire ses points médians
+// Fonction pour créer une piste fermée
 std::tuple<sf::VertexArray, std::vector<Waypoint>, float> createTrackWithWaypoints() {
     const int numPoints = 100;
     sf::VertexArray track(sf::TriangleStrip, numPoints * 2);
@@ -106,46 +195,6 @@ std::tuple<sf::VertexArray, std::vector<Waypoint>, float> createTrackWithWaypoin
     return {track, waypoints, maxDistance};
 }
 
-
-// Vérifie si la voiture est sur l'herbe en fonction de sa position (inchangé)
-bool isOnGrass(const sf::Vector2f& carPosition, const sf::VertexArray& track, float trackWidth) {
-    float centerX = 400, centerY = 300;
-    float radiusX = 250, radiusY = 150;
-
-    float dx = carPosition.x - centerX;
-    float dy = carPosition.y - centerY;
-    float distance = std::sqrt(dx * dx + dy * dy);
-
-    float outerRadius = std::max(radiusX, radiusY) + trackWidth;
-    float innerRadius = std::min(radiusX, radiusY) - trackWidth;
-
-    return (distance > outerRadius || distance < innerRadius);
-}
-
-// Fonction pour créer la zone centrale en herbe
-sf::VertexArray createInnerGrass(float centerX, float centerY, float radiusX, float radiusY, float trackWidth) {
-    const int numPoints = 100;
-    sf::VertexArray innerGrass(sf::TriangleFan, numPoints + 2);
-    innerGrass[0].position = sf::Vector2f(centerX, centerY); // Centre du circuit
-    innerGrass[0].color = sf::Color(34, 139, 34); // Vert foncé
-
-    for (int i = 1; i <= numPoints + 1; i++) {
-        float angle = (i / (float)numPoints) * 2 * M_PI;
-        float rX = radiusX + 30 * std::sin(3 * angle); 
-        float rY = radiusY + 20 * std::cos(2 * angle);
-
-        float x = centerX + (rX - trackWidth) * std::cos(angle);
-        float y = centerY + (rY - trackWidth) * std::sin(angle);
-
-        innerGrass[i].position = sf::Vector2f(x, y);
-        innerGrass[i].color = sf::Color(34, 139, 34); // Même couleur d'herbe
-    }
-
-    return innerGrass;
-}
-
-
-
 // Normaliser un angle en radians entre -PI et PI
 float normalizeAngle(float angle) {
     while (angle > M_PI) angle -= 2 * M_PI;
@@ -153,110 +202,129 @@ float normalizeAngle(float angle) {
     return angle;
 }
 
-// Fonction pour trouver le waypoint le plus proche dans la direction de conduite
-int findNextWaypoint(const Voiture& voiture, const std::vector<Waypoint>& waypoints, int currentWaypoint) {
-    sf::Vector2f carPos(voiture.getX(), voiture.getY());
-    float carAngle = voiture.getAngle() * M_PI / 180.0f;
+// Fonction pour trouver le centre de la piste à partir de la position de la voiture
+sf::Vector2f findTrackCenter(const sf::Vector2f& carPos, const sf::VertexArray& track, int numSegments) {
+    float centerX = 400, centerY = 300;
+    sf::Vector2f centerToPos = carPos - sf::Vector2f(centerX, centerY);
+    float angle = atan2(centerToPos.y, centerToPos.x);
     
-    // Direction de la voiture
-    sf::Vector2f carDir(std::cos(carAngle), std::sin(carAngle));
+    // Convertir l'angle en index du segment
+    float angleNormalized = (angle + M_PI) / (2 * M_PI);  // Normaliser entre 0 et 1
+    int segmentIndex = static_cast<int>(angleNormalized * numSegments) % numSegments;
     
-    // Regarder quelques points en avant
-    int lookAhead = 3;
-    int bestPoint = currentWaypoint;
-    float bestScore = -1;
+    // Les points intérieur et extérieur du segment
+    sf::Vector2f inner = track[segmentIndex * 2].position;
+    sf::Vector2f outer = track[segmentIndex * 2 + 1].position;
     
-    int waypointsCount = waypoints.size();
-    
-    for (int i = 0; i < lookAhead; i++) {
-        int pointIndex = (currentWaypoint + i) % waypointsCount;
-        
-        // Vecteur de la voiture au waypoint
-        sf::Vector2f toWaypoint = waypoints[pointIndex].position - carPos;
-        float distance = std::sqrt(toWaypoint.x * toWaypoint.x + toWaypoint.y * toWaypoint.y);
-        
-        if (distance < 10) {
-            // Si on est très proche du waypoint actuel, passer au suivant
-            bestPoint = (pointIndex + 1) % waypointsCount;
-            break;
-        }
-        
-        // Normaliser le vecteur
-        toWaypoint /= distance;
-        
-        // Calculer le produit scalaire pour avoir l'angle entre la direction de la voiture
-        // et la direction vers le waypoint
-        float dotProduct = carDir.x * toWaypoint.x + carDir.y * toWaypoint.y;
-        
-        // Meilleur score = point dans la direction de la voiture mais pas trop loin
-        float score = dotProduct * (1.0f - distance / 500.0f);
-        
-        if (score > bestScore) {
-            bestScore = score;
-            bestPoint = pointIndex;
-        }
-    }
-    
-    return bestPoint;
+    // Le centre de la piste est la moyenne des points intérieur et extérieur
+    return (inner + outer) / 2.0f;
 }
 
-// Fonction pour calculer l'angle de braquage nécessaire pour atteindre le waypoint cible
-float calculateAdaptiveSteeringAngle(const Voiture& voiture, const Waypoint& target) {
-    // Position actuelle de la voiture
+// Calculer l'erreur latérale (distance perpendiculaire à la ligne centrale)
+float calculateLateralError(const Voiture& voiture, const sf::VertexArray& track, int numSegments) {
     sf::Vector2f carPos(voiture.getX(), voiture.getY());
+    sf::Vector2f center(400, 300);
     
-    // Vecteur de la voiture au waypoint
-    sf::Vector2f toTarget = target.position - carPos;
-    float distance = std::sqrt(toTarget.x * toTarget.x + toTarget.y * toTarget.y);
-    
-    if (distance < 1e-3) return 0.0f;  // Éviter division par zéro
+    // Calculer le vecteur du centre à la voiture
+    sf::Vector2f centerToPos = carPos - center;
+    float distanceFromCenter = sqrt(centerToPos.x * centerToPos.x + centerToPos.y * centerToPos.y);
     
     // Normaliser le vecteur
-    toTarget /= distance;
+    sf::Vector2f directionToPos(0, 0);
+    if (distanceFromCenter > 0) {
+        directionToPos = centerToPos / distanceFromCenter;
+    }
     
-    // Angle de la voiture (en radians)
-    float carAngle = voiture.getAngle() * M_PI / 180.0f;
+    // Calculer l'angle polaire de la voiture par rapport au centre
+    float carPolarAngle = atan2(centerToPos.y, centerToPos.x);
+    
+    // Trouver le point correspondant sur la piste
+    float angleNormalized = (carPolarAngle + M_PI) / (2 * M_PI);  // Normaliser entre 0 et 1
+    int segmentIndex = static_cast<int>(angleNormalized * numSegments) % numSegments;
+    
+    // Points intérieur et extérieur de la piste à cet angle
+    sf::Vector2f innerPoint = track[segmentIndex * 2].position;
+    sf::Vector2f outerPoint = track[segmentIndex * 2 + 1].position;
+    
+    // Point central de la piste
+    sf::Vector2f trackCenter = (innerPoint + outerPoint) / 2.0f;
+    
+    // Distance radiale idéale (distance du centre au centre de la piste)
+    sf::Vector2f trackToCenter = trackCenter - center;
+    float idealRadialDist = sqrt(trackToCenter.x * trackToCenter.x + trackToCenter.y * trackToCenter.y);
+    
+    // Erreur radiale (différence entre la distance radiale actuelle et idéale)
+    float radialError = distanceFromCenter - idealRadialDist;
+    
+    // Direction tangentielle idéale (tangente à la piste)
+    int nextSegmentIndex = (segmentIndex + 1) % numSegments;
+    sf::Vector2f nextInnerPoint = track[nextSegmentIndex * 2].position;
+    sf::Vector2f nextOuterPoint = track[nextSegmentIndex * 2 + 1].position;
+    sf::Vector2f nextTrackCenter = (nextInnerPoint + nextOuterPoint) / 2.0f;
+    
+    sf::Vector2f tangent = nextTrackCenter - trackCenter;
+    float tangentLength = sqrt(tangent.x * tangent.x + tangent.y * tangent.y);
+    if (tangentLength > 0) {
+        tangent /= tangentLength;
+    }
     
     // Direction de la voiture
-    sf::Vector2f carDir(std::cos(carAngle), std::sin(carAngle));
+    float carAngle = voiture.getAngle() * M_PI / 180.0f;
+    sf::Vector2f carDir(cos(carAngle), sin(carAngle));
     
-    // Produit vectoriel pour déterminer si le waypoint est à gauche ou à droite
-    float crossProduct = carDir.x * toTarget.y - carDir.y * toTarget.x;
+    // Produit scalaire pour l'alignement (1 = parfaitement aligné, -1 = totalement opposé)
+    float alignmentDot = carDir.x * tangent.x + carDir.y * tangent.y;
     
-    // Produit scalaire pour avoir l'angle entre la voiture et le waypoint
-    float dotProduct = carDir.x * toTarget.x + carDir.y * toTarget.y;
+    // Produit vectoriel pour déterminer si on est à l'intérieur ou à l'extérieur
+    float cross = (center.x - carPos.x) * (trackCenter.y - carPos.y) - 
+                 (center.y - carPos.y) * (trackCenter.x - carPos.x);
     
-    // Calculer l'angle de braquage (positive = droite, negative = gauche)
-    float angleToTarget = std::atan2(crossProduct, dotProduct);
+    // Amplifier l'erreur quand on s'éloigne trop
+    float errorFactor = std::min(1.0f, std::abs(radialError) / 50.0f + 0.7f);
     
-    // Ajuster la sensibilité selon la distance et le rayon de courbure
-    float sensitivity = 1.0f;
-    float steeringAngle = angleToTarget * sensitivity;
-    
-    // Limiter l'angle de braquage à une plage raisonnable [-1, 1]
-    steeringAngle = std::max(-1.0f, std::min(1.0f, steeringAngle));
-    
-    // Ajuster la vitesse en fonction du rayon de courbure
-    // Plus le rayon est petit, plus on doit ralentir
-    float speedFactor = target.targetRadius / 250.0f;
-    
-    return steeringAngle;
+    // L'erreur est positive si on est à l'extérieur et négative si on est à l'intérieur
+    return radialError * (cross >= 0 ? 1.0f : -1.0f) * errorFactor;
 }
 
+// Vérifier si la voiture est sur l'herbe
+bool isOnGrass(const sf::Vector2f& carPos, const sf::Vector2f& center, float innerRadius, float outerRadius) {
+    float dx = carPos.x - center.x;
+    float dy = carPos.y - center.y;
+    float distance = std::sqrt(dx * dx + dy * dy);
+    
+    return (distance < innerRadius || distance > outerRadius);
+}
+
+// Fonction pour calculer la vitesse cible en fonction de la courbure
+float calculateTargetSpeed(float curvature, float maxSpeed, float minSpeed) {
+    // Plus la courbure est grande, plus la vitesse est réduite
+    float speedFactor = std::max(0.0f, 1.0f - std::abs(curvature));
+    return minSpeed + speedFactor * (maxSpeed - minSpeed);
+}
+
+
+
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation - Adaptive Steering");
+    sf::RenderWindow window(sf::VideoMode(800, 600), "RC Car Simulation - PID Controller");
     window.setFramerateLimit(60);
 
     float tempsDepuisDernierUpdateTexte = 0.0f;
 
-    // Créer le circuit avec waypoints
+    // Créer le circuit
     auto [track, waypoints, maxDistance] = createTrackWithWaypoints();
     sf::VertexArray grass = createGrass(track, 40);
+    
+    // Centre du circuit et rayon pour la détection de l'herbe
+    sf::Vector2f center(400, 300);
+    float innerRadius = 100;  // Rayon intérieur de la piste
+    float outerRadius = 300;  // Rayon extérieur de la piste
 
-    // Visualisation des waypoints
-    sf::CircleShape waypointMarker(3);
-    waypointMarker.setFillColor(sf::Color::Yellow);
-    waypointMarker.setOrigin(3, 3);
+    // Initialiser le contrôleur PID pour la direction
+    PIDController steeringPID(1.5f, 0.02f, 0.5f, 10.0f, 1.0f);
+
+    
+    // Initialiser le contrôleur PID pour la vitesse
+    PIDController speedPID(0.5f, 0.001f, 0.1f, 10.0f, 1.0f);
 
     sf::Font font;
     if (!font.loadFromFile("../../assets/Roboto-Regular.ttf")) {
@@ -268,6 +336,11 @@ int main() {
     hudText.setCharacterSize(18);
     hudText.setFillColor(sf::Color::White);
     hudText.setPosition(10, 10);
+
+    // Visualisation de la ligne centrale
+    sf::CircleShape centerMarker(3);
+    centerMarker.setFillColor(sf::Color::Yellow);
+    centerMarker.setOrigin(3, 3);
 
     // Chargement de la map
     Map map;
@@ -298,28 +371,52 @@ int main() {
 
     // Voiture et forces
     Voiture voiture(150, 300, 0, 20.0, 0.3); // x, y, angle, masse, empattement
-    //ForceMotrice moteur(100000.0, 80.0);
-    // ForceMotriceProgressive moteur(10000.0, 10.0); // 5 m/s² atteints en 3 secondes
     ForceMotriceProgressive moteur(1e4, 10.0, 20.0);
     ForceFrottement frottement(0.0002);
     ForceFreinage frein(0.3);
     ForceAerodynamique air(0.0072);
     ForceVirage virage(0.0);
-    ForceFreinGlisse freinGlisse(10);  // A ajuster selon l'effet visuel souhaité
+    ForceFreinGlisse freinGlisse(10);
     std::vector<Force*> forces = {&moteur, &frottement, &air, &frein, &virage, &freinGlisse};
 
     // Mode autonome activé par défaut
     bool autonomousMode = true;
     
-    // Waypoint actuel
-    int currentWaypoint = 0;
+    // Paramètres pour le PID
+    float targetSpeed = 40.0f;    // Vitesse cible en m/s
+    float maxSpeed = 60.0f;       // Vitesse maximale en m/s
+    float minSpeed = 20.0f;       // Vitesse minimale dans les virages
     
-    // Ligne pour visualiser la direction cible
-    sf::Vertex targetLine[2];
-    targetLine[0].color = sf::Color::Red;
-    targetLine[1].color = sf::Color::Red;
+    // Variables pour visualiser le PID
+    sf::Vertex errorLine[2];
+    errorLine[0].color = sf::Color::Red;
+    errorLine[1].color = sf::Color::Red;
+    
+    sf::Vertex centerLine[2];
+    centerLine[0].color = sf::Color::Green;
+    centerLine[1].color = sf::Color::Green;
 
+    // Initialiser le chronomètre
+    Chronometre chrono;
+
+    // Créer une ligne de départ/arrivée en bas du circuit
+    float trackWidth = 100.0f; // Largeur approximative de la piste
+    float voitureInitX = 150.0f;
+    float voitureInitY = 300.0f;
+    LigneArrivee ligneArrivee(voitureInitX - trackWidth/2, voitureInitY, trackWidth);
+    bool premierPassage = true;
+
+    // Position précédente de la voiture pour détection de traversée
+    sf::Vector2f positionPrecedente(voiture.getX(), voiture.getY());
+
+    // Horloge pour le calcul du delta time
+    sf::Clock clock;
+    
     while (window.isOpen()) {
+        // Calculer le temps écoulé
+        float dt = clock.restart().asSeconds();
+        tempsDepuisDernierUpdateTexte += dt;
+        
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
@@ -327,6 +424,8 @@ int main() {
             if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::A) {
                 // Touche A pour activer/désactiver le mode autonome
                 autonomousMode = !autonomousMode;
+                steeringPID.reset();  // Réinitialiser le PID lors du changement de mode
+                speedPID.reset();
             }
         }
 
@@ -336,56 +435,130 @@ int main() {
         voiture.activerFrein(false);
 
         if (autonomousMode) {
-            // Mode autonome : calcul de l'angle de braquage adaptatif
-            
-            // Trouver le prochain waypoint
-            currentWaypoint = findNextWaypoint(voiture, waypoints, currentWaypoint);
-            
-            // Calculer l'angle de braquage adaptatif
-            angle_braquage = calculateAdaptiveSteeringAngle(voiture, waypoints[currentWaypoint]);
-            
-            // Ajuster la vitesse en fonction du rayon de courbure
-            float speedFactor = waypoints[currentWaypoint].targetRadius / 250.0f;
-            speedFactor = std::max(0.3f, std::min(1.0f, speedFactor)); // Limiter entre 0.3 et 1.0
-            
-            // Accélérer plus dans les lignes droites, moins dans les virages
-            etat = 1;
-            
-            // Vérifier si on est sur l'herbe, et ajuster si nécessaire
+            // Trouver le waypoint le plus proche devant la voiture
             sf::Vector2f carPos(voiture.getX(), voiture.getY());
-            if (isOnGrass(carPos, track, 50)) {
-                // Si sur l'herbe, chercher le waypoint le plus proche qui est sur la piste
-                float minDist = 1000000;
-                int closestWaypoint = currentWaypoint;
+            float carAngle = voiture.getAngle() * M_PI / 180.0f;
+            sf::Vector2f carDir(cos(carAngle), sin(carAngle));
+            
+            // Trouver le waypoint le plus proche et approprié
+            sf::Vector2f targetWaypoint;
+            float minDist = std::numeric_limits<float>::max();
+            size_t targetIdx = 0;
+            
+            for (size_t i = 0; i < waypoints.size(); ++i) {
+                sf::Vector2f waypoint = waypoints[i].position;
+                sf::Vector2f toWaypoint = waypoint - carPos;
+                float dist = std::sqrt(toWaypoint.x * toWaypoint.x + toWaypoint.y * toWaypoint.y);
                 
-                for (int i = 0; i < waypoints.size(); i++) {
-                    float dx = waypoints[i].position.x - carPos.x;
-                    float dy = waypoints[i].position.y - carPos.y;
-                    float dist = dx*dx + dy*dy;
+                // Calculer le produit scalaire pour voir si le waypoint est devant la voiture
+                float dotProduct = carDir.x * toWaypoint.x + carDir.y * toWaypoint.y;
+                
+                // Ne considérer que les waypoints qui sont devant et pas trop loin
+                if (dotProduct > 0 && dist < 200 && dist < minDist) {
+                    minDist = dist;
+                    targetWaypoint = waypoint;
+                    targetIdx = i;
+                }
+            }
+            
+            // Si aucun waypoint trouvé devant, prendre le plus proche
+            if (minDist == std::numeric_limits<float>::max()) {
+                for (size_t i = 0; i < waypoints.size(); ++i) {
+                    sf::Vector2f waypoint = waypoints[i].position;
+                    sf::Vector2f toWaypoint = waypoint - carPos;
+                    float dist = std::sqrt(toWaypoint.x * toWaypoint.x + toWaypoint.y * toWaypoint.y);
                     
                     if (dist < minDist) {
                         minDist = dist;
-                        closestWaypoint = i;
+                        targetWaypoint = waypoint;
+                        targetIdx = i;
                     }
                 }
-                
-                currentWaypoint = closestWaypoint;
-                angle_braquage = calculateAdaptiveSteeringAngle(voiture, waypoints[currentWaypoint]);
-                etat = 1; // Accélérer pour sortir de l'herbe
             }
             
-            // Visualiser la direction cible
-            targetLine[0].position = sf::Vector2f(voiture.getX(), voiture.getY());
-            targetLine[1].position = waypoints[currentWaypoint].position;
-        } else {
-            // Mode manuel - contrôles utilisateur
+            // Calculer l'angle vers le waypoint cible
+            sf::Vector2f toTarget = targetWaypoint - carPos;
+            float targetAngle = atan2(toTarget.y, toTarget.x);
+            
+            // Différence d'angle normalisée entre -PI et PI
+            float angleDiff = normalizeAngle(targetAngle - carAngle);
+            
+            // Calculer l'erreur latérale par rapport à la ligne vers le waypoint
+            float lateralError = minDist * sin(angleDiff);
+            
+            // Appliquer un PID pour l'angle de braquage avec des limites plus strictes à haute vitesse
+            float speed = voiture.getVitesse();
+            float maxSteeringAngle = std::min(1.0f, 20.0f / (speed + 10.0f)); // Limiter le braquage à haute vitesse
+            
+            // Calculer l'angle de braquage avec le PID et les limites
+            float rawSteeringAngle = steeringPID.calculate(lateralError, dt);
+            angle_braquage = std::clamp(rawSteeringAngle, -maxSteeringAngle, maxSteeringAngle);
+            
+            // Empêcher les demi-tours en vérifiant si on s'éloigne trop de la direction de la piste
+            float trackDirection = atan2(toTarget.y, toTarget.x);
+            float carTrackAngleDiff = normalizeAngle(carAngle - trackDirection);
+            
+            if (std::abs(carTrackAngleDiff) > M_PI * 0.75f) {
+                // La voiture est dans la mauvaise direction, forcer une correction
+                angle_braquage = (carTrackAngleDiff > 0) ? -maxSteeringAngle : maxSteeringAngle;
+            }
+            
+            // Calculer la courbure de la piste au waypoint actuel
+            float targetRadius = waypoints[targetIdx].targetRadius;
+            float curvature = 1.0f / std::max(1.0f, targetRadius);
+            
+            // Calculer la vitesse cible en fonction de la courbure et de l'erreur latérale
+            float speedFactor = 1.0f - std::min(1.0f, std::abs(curvature) * 5.0f + std::abs(lateralError) / 100.0f);
+            float speedTarget = minSpeed + speedFactor * (maxSpeed - minSpeed);
+            
+            // Ralentir davantage si on est loin du centre ou dans l'herbe
+            if (std::abs(lateralError) > 30.0f) {
+                speedTarget *= 0.8f;
+            }
+            
+            // Vérifier si on est sur l'herbe
+            bool onGrass = isOnGrass(carPos, center, innerRadius, outerRadius);
+            if (onGrass) {
+                speedTarget *= 0.5f; // Ralentir fortement sur l'herbe
+            }
+            
+            // Calculer l'erreur de vitesse
+            float speedError = speedTarget - voiture.getVitesse();
+            
+            // Appliquer le PID pour la vitesse
+            float throttleControl = speedPID.calculate(speedError, dt);
+            
+            // Appliquer les contrôles
+            if (throttleControl > 0.1f) {
+                etat = 1;  // Accélérer
+                voiture.setAccelerationActive(true);
+            } else if (throttleControl < -0.1f) {
+                voiture.activerFrein(true);  // Freiner
+                etat = -1;
+            } else {
+                voiture.setAccelerationActive(false);
+            }
+            
+            // Visualiser la cible
+            centerLine[0].position = carPos;
+            centerLine[1].position = targetWaypoint;
+            
+            // Visualiser l'erreur latérale
+            sf::Vector2f perpDir(-toTarget.y, toTarget.x);
+            float perpLength = std::sqrt(perpDir.x * perpDir.x + perpDir.y * perpDir.y);
+            if (perpLength > 0) {
+                perpDir /= perpLength;
+            }
+            
+            errorLine[0].position = carPos;
+            errorLine[1].position = carPos + perpDir * lateralError;
+        } else {   // Mode manuel - contrôles utilisateur
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
                 etat = 1; // Accélère
                 voiture.setAccelerationActive(true);
             } else {
                 voiture.setAccelerationActive(false);
             }
-            
             
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
                 voiture.activerFrein(true);
@@ -402,7 +575,6 @@ int main() {
         bool freinMainActif = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
         voiture.setFreinMainActif(freinMainActif);
         voiture.setAccelerationActive(etat == 1); // pour que la force motrice sache si on accélère
-
 
         // === FORCES PHYSIQUES ===
         double fx = 0, fy = 0;
@@ -438,18 +610,16 @@ int main() {
         directionIndicator.setRotation(voiture.getAngle() + angle_braquage+90); // Ajustement de l'angle pour correspondre à la direction de la voiture
 
         // === Affichage de la vitesse et angle ===
-        // Calcul du temps écoulé entre les frames
-        static sf::Clock clock;
-        float dt = clock.restart().asSeconds();
-        tempsDepuisDernierUpdateTexte += dt;
-
         if (tempsDepuisDernierUpdateTexte >= 0.25f) {  // toutes les 250 ms
+            auto [kp, ki, kd] = steeringPID.getConstants();
+            
             std::ostringstream oss;
             oss << "Vitesse : " << std::fixed << std::setprecision(2) << voiture.getVitesse() << " m/s\n"
                 << "Angle   : " << std::fixed << std::setprecision(2) << voiture.getAngle() << " degres\n"
-                << "Waypoint actuel : " << currentWaypoint << "/" << waypoints.size() << "\n"
-                << "Mode : " << (autonomousMode ? "AUTONOME (A pour desactiver)" : "MANUEL (A pour activer)")
-                << "Accél. moteur : " 
+                << "Angle braquage : " << std::fixed << std::setprecision(2) << angle_braquage << "\n"
+                << "Mode : " << (autonomousMode ? "AUTONOME - PID (A pour desactiver)" : "MANUEL (A pour activer)")
+                << "\nPID: Kp=" << kp << ", Ki=" << ki << ", Kd=" << kd << "\n"
+                << "Accel. moteur : " 
                 << std::fixed << std::setprecision(2) 
                 << moteur.getAccelerationCourante() << " m/s²\n";
                 
@@ -458,31 +628,79 @@ int main() {
             tempsDepuisDernierUpdateTexte = 0.0f;
         }
         
+        sf::Vector2f positionVoiture(voiture.getX(), voiture.getY());
+        if (ligneArrivee.verifierTraversee(positionVoiture, positionPrecedente)) {
+            if (premierPassage) {
+                // Premier passage de la ligne, on démarre simplement le chrono
+                chrono.demarrer();
+                premierPassage = false;
+            } else {
+                // Passages suivants, on arrête le chrono actuel, on enregistre le temps
+                // et on redémarre immédiatement pour le tour suivant
+                chrono.arreter();
+                chrono.demarrer();
+            }
+        }
+        positionPrecedente = positionVoiture;
+
+        // Afficher les informations du chronomètre
+        std::ostringstream chronoText;
+        chronoText << "Tours: " << chrono.tours << "\n";
+
+        // Afficher le temps du tour en cours
+        if (chrono.estActif) {
+            chronoText << "Tour actuel: " << std::fixed << std::setprecision(2) 
+                    << chrono.getTempsActuel() << " s\n";
+        }
+
+        // Afficher le meilleur temps
+        if (chrono.tours > 0) {
+            chronoText << "Meilleur temps: " << std::fixed << std::setprecision(2) 
+                    << chrono.meilleurTemps << " s\n";
+        }
+
+        // Afficher les temps des tours précédents (limité aux 3 derniers)
+        if (!chrono.tempsParTour.empty()) {
+            chronoText << "Derniers tours:\n";
+            int start = std::max(0, static_cast<int>(chrono.tempsParTour.size()) - 3);
+            for (int i = start; i < chrono.tempsParTour.size(); i++) {
+                chronoText << "Tour " << (i + 1) << ": " << std::fixed << std::setprecision(2) 
+                        << chrono.tempsParTour[i] << " s\n";
+            }
+        }
+
+        sf::Text chronoDisplay;
+        chronoDisplay.setFont(font);
+        chronoDisplay.setCharacterSize(18);
+        chronoDisplay.setFillColor(sf::Color::Yellow);
+        chronoDisplay.setPosition(10, 150);
+        chronoDisplay.setString(chronoText.str());
+
         window.clear();
         window.draw(grass, grassState);
         window.draw(track, trackState);
         
-        // Afficher les waypoints
+        // Afficher les lignes d'aide du PID en mode autonome
         if (autonomousMode) {
-            for (int i = 0; i < waypoints.size(); i++) {
-                waypointMarker.setPosition(waypoints[i].position);
-                waypointMarker.setFillColor((i == currentWaypoint) ? sf::Color::Red : sf::Color::Blue);
-                window.draw(waypointMarker);
-            }
+            window.draw(centerLine, 2, sf::Lines);
+            window.draw(errorLine, 2, sf::Lines);
             
-            // Afficher la ligne vers le waypoint cible
-            window.draw(targetLine, 2, sf::Lines);
+            // Afficher le centre de piste détecté
+            sf::Vector2f trackCenter = findTrackCenter(sf::Vector2f(voiture.getX(), voiture.getY()), track, 100);
+            centerMarker.setPosition(trackCenter);
+            window.draw(centerMarker);
         }
         
         window.draw(carSprite);
         window.draw(directionIndicator);
         window.draw(hudText);
+        window.draw(ligneArrivee.ligne);
+        window.draw(chronoDisplay);
         window.display();
     }
 
     return 0;
 }
-
 
 //version pour le menu
 /*
