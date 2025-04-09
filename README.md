@@ -2,7 +2,7 @@
 
 Ce projet simule en 2D la trajectoire d’une voiture radiocommandée (RC) avec un **modèle physique réaliste**, en utilisant la bibliothèque **SFML** pour l’affichage et la gestion des entrées clavier. L’objectif est de modéliser la dynamique de la voiture, d’implémenter des forces physiques, et de suivre une trajectoire à l’aide d’un contrôleur PID.
 
-## 🎮 Fonctionnalités
+## Fonctionnalités
 
 - Simulation physique réaliste (accélération progressive, freinage, frottements, etc.)
 - Contrôle manuel ou autonome avec PID
@@ -12,7 +12,7 @@ Ce projet simule en 2D la trajectoire d’une voiture radiocommandée (RC) avec 
 - Système de collision simple (zones d’herbe/délimitation)
 - Structure modulaire orientée objet
 
-## 🧱 Structure du projet
+## Structure du projet
 
 /assets # Textures utilisées (piste, voiture, herbe, etc.) 
 
@@ -27,7 +27,7 @@ Ce projet simule en 2D la trajectoire d’une voiture radiocommandée (RC) avec 
   ├── Simulation # Fichier principal main.cpp + Makefile /tests # Éventuels tests unitaires
 
 
-## ⚙️ Compilation
+## Compilation
 
 ### 1. Prérequis
 
