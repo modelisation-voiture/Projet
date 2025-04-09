@@ -4,3 +4,8 @@ Projections
   -Realisation du simulateur pour la voiture autonome
   -Affichage du contenu du lidar
   -Pendre en compte la dynamique du chassis, les angles de rotation des roues avant, vitesse des roues arrire et les derapages (equations)
+
+regler les conflits sur les .o
+git rm --cached *.o
+
+
