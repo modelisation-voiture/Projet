@@ -1,12 +1,14 @@
-Installation SFML : brew install sfml
-X11 : "C:\Program Files\VcXsrv\vcxsrv.exe" -ac -wgl -multiwindow -clipboard
+## Dépendances du projet RC Car Simulator (C++)
 
-Installation SDL2 :  - Ubuntu : sudo apt-get update sudo apt-get install libsdl2-dev
-                     - Mac : brew install sdl2
-Installation SDL2_image : - Ubuntu : sudo apt-get install libsdl2-image-dev
-                          - Mac : brew install sdl2_image
+# SFML (version >= 2.6.0 recommandée) # Déjà incluse dans le dépôt sous /SFML-2.6.2
+Pour installation système :
+    Mac : brew install sfml
+    Linux : sudo apt install libsfml-dev
 
-Installation nlohmann/json : - Ubuntu : sudo apt-get install nlohmann-json3-dev
-                             - Mac : brew install nlohmann-json
+# Bibliothèque JSON (optionnelle pour une eventuelle sauvegarde de la configuration)
+    # Mac : brew install nlohmann-json
+    # Linux : sudo apt install nlohmann-json3-dev
 
-Installation OEDINT : - Ubuntu : sudo apt install libboost-all-dev
+# Boost (optionnel pour solveurs différentiels)
+    # Mac : brew install boost
+    # Linux : sudo apt install libboost-all-dev

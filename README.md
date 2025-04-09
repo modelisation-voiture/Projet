@@ -1,158 +1,76 @@
-# Projet
-
 # Simulation de Trajectoire d’une Voiture RC
 
-## Objectif du projet
+Ce projet simule en 2D la trajectoire d’une voiture radiocommandée (RC) avec un **modèle physique réaliste**, en utilisant la bibliothèque **SFML** pour l’affichage et la gestion des entrées clavier. L’objectif est de modéliser la dynamique de la voiture, d’implémenter des forces physiques, et de suivre une trajectoire à l’aide d’un contrôleur PID.
 
-Ce projet vise à modéliser et simuler la trajectoire d’une voiture RC sur un circuit avec une **interface graphique 2D en SFML**. L'objectif est d'intégrer un **modèle physique réaliste** basé sur des équations différentielles et d'optimiser la trajectoire pour un circuit donné.  
+## 🎮 Fonctionnalités
 
-Dans un second temps, une simulation d’un **capteur LiDAR** sera ajoutée afin d’évaluer dynamiquement l’environnement et ajuster la trajectoire en conséquence.
+- Simulation physique réaliste (accélération progressive, freinage, frottements, etc.)
+- Contrôle manuel ou autonome avec PID
+- Circuit généré dynamiquement avec waypoints
+- Affichage 2D avec textures SFML
+- Chronométrage des tours
+- Système de collision simple (zones d’herbe/délimitation)
+- Structure modulaire orientée objet
 
-## Équipe
+## 🧱 Structure du projet
 
-- **Nadir** : Modélisation physique et simulation de la dynamique du véhicule.  
-- **David** : Développement de l’interface graphique avec SFML.  
-- **Talla** : Gestion des interactions utilisateur et intégration des algorithmes de contrôle.  
+/assets # Textures utilisées (piste, voiture, herbe, etc.) 
 
-## Organisation du projet
+/circuits # Données éventuelles pour d'autres circuits 
 
+/SFML-2.6.2 # Dossier SFML (inclus dans le dépôt)
+
+/src 
+  ├── Affichage # Affichage SFML, map, textures 
+  ├── Model # Forces physiques + dynamique de la voiture 
+  ├── PID # Contrôleur PID (vitesse, direction) 
+  ├── Simulation # Fichier principal main.cpp + Makefile /tests # Éventuels tests unitaires
+
+
+## ⚙️ Compilation
+
+### 1. Prérequis
+
+- **SFML 2.6.2** (déjà fourni dans le dossier `SFML-2.6.2/`)
+- **Compilateur C++17 compatible** (Clang, g++)
+- Optionnel :
+  - `nlohmann/json` (si besoin d'extension JSON plus tard)
+
+#### Dépendances (Mac/Linux)
+
+```bash
+# Sur Mac
+brew install sfml nlohmann-json boost
+
+# Sur Ubuntu
+sudo apt update
+sudo apt install libsfml-dev nlohmann-json3-dev 
+
+### 2. Compilation
+
+```bash
+cd src/Simulation
+make
 ```
-/Projet-RC
-│── /docs               # Documentation (formules mathématiques, modèles physiques)
-│── /src                # Code source principal en C++
-│   │── main.cpp        # Point d'entrée principal du programme
-│   │── Simulation/     # Moteur physique
-│   │   │── Modeles/    # Modèles de dynamique et trajectoire
-│   │   │── Solver/     # Résolution des équations différentielles
-│   │── Affichage/      # Interface graphique SFML
-│   │── Controle/       # Algorithmes d’optimisation
-│   │── Donnees/        # Fichiers de circuits
-│── /tests              # Tests unitaires
-│── /circuits           # Données des circuits en JSON
-│── /assets             # Images et textures
-│── README.md           # Présentation du projet
-│── Makefile            # Compilation avec SFML
+
+Cela génère un exécutable `rc_simulation` dans le même dossier.
+
+### 3. Exécution
+
+```bash
+./rc_simulation
 ```
 
-## Détails
-La classe VoitureRC est l’élément central de notre projet de simulation. Elle représente l’état physique du véhicule et les interactions avec les forces appliquées. 
+## Commandes
 
-## Technologies utilisées
+- `Espace` : accélérer (mode manuel)
+- `Entrée` : freiner
+- `←` / `→` : tourner
+- `A` : activer/désactiver le mode autonome
+- `↓` : frein à main
 
-- **C++** : Langage principal du projet.  
-- **SFML** : Bibliothèque pour l’affichage et la gestion des entrées utilisateur.  
-- **Makefile** : Automatisation de la compilation et de l’exécution.  
+## Auteurs
 
----
-
-## Plan de travail
-
-### Semaine 1 : Analyse et préparation (14-21 février)
-
-**Objectifs**  
-- Étudier les **modèles mathématiques** pour la dynamique d’une voiture RC.  
-- Définir la **structure du circuit** dans un repère cartésien.  
-- Préparer l’environnement de développement et initialiser **le projet GitHub**.  
-
-**Répartition des tâches**  
-- **Nadir** : Choisir et implémenter les **équations du modèle dynamique**.  
-- **David** : Installer et tester **SFML**, préparer une **fenêtre 2D** affichant un circuit statique.  
-- **Talla** : Structurer le projet sur **GitHub**, préparer le **Makefile** pour SFML.  
-
----
-
-### Semaine 2-3 : Implémentation de la simulation physique (22 février - 6 mars)
-
-**Objectifs**  
-- Développer le **moteur de simulation** basé sur la dynamique d’une voiture RC.  
-- Intégrer les **équations différentielles** pour mettre à jour la position du véhicule.  
-- Afficher une **première version de la trajectoire** sur l’interface SFML.  
-
-**Formules utilisées**  
-- **Position** :  
-  ```
-  X_dot = Vx * cos(ψ) - Vy * sin(ψ)
-  Y_dot = Vx * sin(ψ) + Vy * cos(ψ)
-  ```
-- **Vitesse latérale** :  
-  ```
-  Vy_dot = -Vx * ψ_dot + (2 * Cf / m) * (δf - (Vy + a * ψ_dot) / Vx) + (2 * Cr / m) * (- (Vy - b * ψ_dot) / Vx)
-  ```
-- **Angle de lacet** :  
-  ```
-  ψ_dot = (2 * a * Cf / Iz) * (δf - (Vy + a * ψ_dot) / Vx) - (2 * b * Cr / Iz) * ((Vy - b * ψ_dot) / Vx)
-  ```
-
-**Répartition des tâches**  
-- **Nadir** : Implémentation des **équations de dynamique** et mise à jour de la position du véhicule.  
-- **David** : Gestion des **affichages graphiques** (circuit, véhicule en mouvement, tracé de la trajectoire).  
-- **Talla** : Interaction **clavier** (accélération, freinage) et affichage des données de simulation.  
-
----
-
-### Semaine 4 : Gestion de collision et optimisation du modèle (7-14 mars)
-
-**Objectifs**  
-- Ajouter **des bordures de circuit** et détecter les sorties de route.  
-- Améliorer la gestion **des virages et des trajectoires optimales**.  
-- Implémenter un **système de correction de trajectoire** en fonction des collisions détectées.  
-
-**Méthode de détection des collisions**  
-- Définir le circuit comme une **matrice de pixels** ou une **liste de segments (x,y)**.  
-- Vérifier en temps réel si **les coordonnées de la voiture sont valides**.  
-
-**Répartition des tâches**  
-- **Nadir** : Implémentation de la **détection des bordures et des collisions**.  
-- **David** : Affichage **graphique des zones de collision** et amélioration de la gestion des virages.  
-- **Talla** : Optimisation du **moteur physique** pour rendre la simulation plus fluide.  
-
----
-
-### Semaine 5 : Ajout de la simulation LiDAR (15-21 mars)
-
-**Objectifs**  
-- Simuler un **capteur LiDAR** qui détecte les bordures du circuit.  
-- Modifier l’algorithme de contrôle pour que le véhicule **utilise ces données** afin d’ajuster sa trajectoire.  
-
-**Méthode pour simuler le LiDAR**  
-- Émettre des **rayons virtuels** autour de la voiture.  
-- Déterminer les **intersections** avec les bords du circuit.  
-- Calculer la **distance aux obstacles** et ajuster l’angle de braquage.  
-
-**Répartition des tâches**  
-- **Nadir** : Calcul des **intersections des rayons LiDAR** avec le circuit.  
-- **David** : Affichage **des points détectés** par le LiDAR.  
-- **Talla** : Ajustement **de la trajectoire en fonction des distances mesurées**.  
-
----
-
-### Semaine 6 : Tests, finitions et rapport final (22-28 mars)
-
-**Objectifs**  
-- Effectuer des **tests de robustesse** (différentes vitesses, types de virages).  
-- Ajouter une **animation des trajectoires optimales**.  
-- Finaliser la **documentation et le rapport technique**.  
-
-**Répartition des tâches**  
-- **Nadir** : Tests finaux et analyse **des performances** du moteur physique.  
-- **David** : **Amélioration graphique** et corrections de bugs.  
-- **Talla** : Rédaction du **rapport final** et production d’une vidéo de démonstration.  
-
----
-
-### Derniers jours (29-31 mars)
-
-**Objectifs**  
-- Préparer **la présentation** du projet.  
-- Réaliser une **vidéo de démonstration**.  
-- Finaliser la **documentation** et les supports de présentation.  
-
----
-
-## Conclusion
-
-Le projet sera centré sur la **modélisation physique et la simulation** d’une voiture RC sur un circuit en SFML.  
-La priorité sera d’intégrer des **équations différentielles précises** pour obtenir un comportement réaliste et de structurer le code de manière modulaire.  
-La **gestion des collisions et de la trajectoire sera développée en premier**, avant d’intégrer progressivement la simulation du LiDAR.  
-
-L’approche retenue permet de maximiser la fidélité physique tout en assurant une interface graphique interactive et performante.  
+- **Nadir** : Modélisation physique, forces, dynamique véhicule
+- **David** : Contrôles utilisateur, PID
+- **Talla** : Interface graphique SFML 

@@ -1,19 +1,28 @@
-all: main
+CXX = g++
+CXXFLAGS = -std=c++17 -I ../../SFML-2.6.2/include
 
-main: main.o Voiture.o Force.o Map.o
-	g++ main.o Voiture.o Force.o Map.o -o main -std=c++17
+# Détection du système
+UNAME_S := $(shell uname -s)
 
-main.o: main.cpp Voiture.hpp Force.hpp Map.hpp
-	g++ -c main.cpp -std=c++17
+# Configuration des options de liaison selon l'OS
+ifeq ($(UNAME_S), Darwin)  # macOS
+    LDFLAGS = -F ../../SFML-2.6.2/Frameworks -Wl,-rpath,../../SFML-2.6.2/Frameworks \
+              -framework sfml-graphics -framework sfml-window -framework sfml-system # -framework sfml-audio
+else  # Linux (Ubuntu, etc.)
+    LDFLAGS = -L ../../SFML-2.6.2/lib -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio
+endif
 
-Voiture.o: Voiture.cpp Voiture.hpp
-	g++ -c Voiture.cpp -std=c++17
+SRC = main.cpp ../Model/voiture.cpp ../Affichage/map.hpp ../PID/pid_controller.cpp
+OBJ = main.o ../Affichage/map.o ../Model/voiture.o ../PID/pid_controller.o # $(SRC:.cpp=.o)
+TARGET = rc_simulation
 
-Force.o: Force.cpp Force.hpp Voiture.hpp
-	g++ -c Force.cpp -std=c++17
+all: $(TARGET)
 
-Map.o: Map.cpp Map.hpp
-	g++ -c Map.cpp -std=c++17
+$(TARGET): $(OBJ)
+	$(CXX) -o $(TARGET) $(OBJ) $(LDFLAGS)
+
+%.o: %.cpp
+	$(CXX) -v $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f main *.o trajectoire.txt
+	rm -f $(OBJ) $(TARGET)

@@ -44,19 +44,23 @@ class ForceMotriceProgressive : public Force {
         double coeff_descente;
     
     public:
-        ForceMotriceProgressive(double a_max = 10.0, double t_monte = 20.0, double t_descend = 10.0)
+        ForceMotriceProgressive(double a_max = 10.0, double t_monte = 10.0, double t_descend = 5.0)
             : acceleration_max(a_max), temps_montée(t_monte), temps_descente(t_descend) {
-            coeff_montée = acceleration_max / temps_montée;
-            coeff_descente = 10 * acceleration_max / temps_descente;
+            coeff_montée = (1.5)*acceleration_max / temps_montée;
+            coeff_descente = acceleration_max * temps_descente ;// temps_descente;
         }
     
         std::pair<double, double> calculer_force(const Voiture& voiture) const override {
+            // printf("L'attribut acceleration_active : %d\n", voiture.isAccelerationActive());
             if (voiture.isAccelerationActive()) {
                 acceleration_courante += coeff_montée * 0.01;
+                // printf("acceleration_courante : %f\n", acceleration_courante);
                 if (acceleration_courante > acceleration_max)
                     acceleration_courante = acceleration_max;
             } else {
                 acceleration_courante -= coeff_descente * 0.001;
+                // printf("acceleration_courante : %f\n", acceleration_courante);
+
                 if (acceleration_courante < 0.0)
                     acceleration_courante = 0.0;
             }
