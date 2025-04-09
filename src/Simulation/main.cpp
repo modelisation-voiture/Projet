@@ -14,6 +14,8 @@
 // Déclaration des textures et structures de base
 sf::Texture trackTexture, grassTexture, borderTexture, carTexture;
 
+
+
 // Structure pour le chronomètre
 struct Chronometre {
     sf::Clock clock;
@@ -353,6 +355,23 @@ int main() {
     carSprite.setTexture(carTexture);
     carSprite.setScale(0.12f, 0.12f);
 
+    // Trajectoire de la voiture
+    std::vector<std::pair<sf::Vector2f, float>> trajectoireActuelle;
+    std::vector<std::pair<sf::Vector2f, float>> trajectoirePrecedente;
+
+    size_t ghostIndex = 0;
+
+    // Sprite pour la voiture bleue
+    sf::Texture carBlueTexture;
+    if (!carBlueTexture.loadFromFile("../../assets/car_blue.png")) {
+        std::cerr << "Erreur chargement texture voiture bleue\n";
+        return -1;
+    }
+    sf::Sprite carBlue;
+    carBlue.setTexture(carBlueTexture);
+    carBlue.setScale(0.12f, 0.12f);
+
+
     // Triangle de direction
     sf::ConvexShape directionIndicator;
     directionIndicator.setPointCount(3);
@@ -411,6 +430,8 @@ int main() {
 
     // Horloge pour le calcul du delta time
     sf::Clock clock;
+
+    
     
     while (window.isOpen()) {
         // Calculer le temps écoulé
@@ -571,6 +592,19 @@ int main() {
                 angle_braquage = 1.0;  // → Tourne à droite
             }
         }
+
+        // Vérifier si la voiture est sur l'herbe
+        // et ajuster l'accélération si nécessaire 
+        // Problème de divergence avec frottement trop grand et acceleration trop grande. Échelle à revoir.
+        // sf::Vector2f carPos(voiture.getX(), voiture.getY());
+        // bool onGrass = isOnGrass(carPos, center, innerRadius, outerRadius);
+
+        // if (onGrass) {
+        //     frottement.setCoefficient(0.3);  // Ralentissement fort
+        // } else {
+        //     frottement.setCoefficient(0.1); // Ralentissement normal sur asphalte
+        // } 
+
         
         bool freinMainActif = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
         voiture.setFreinMainActif(freinMainActif);
@@ -594,6 +628,14 @@ int main() {
         
         voiture.appliquerForce(fx, fy);
         voiture.updatePositionRK4(0.01, fx, fy, 0.02, angle_braquage);
+        
+        // === TRAJECTOIRE ===
+        if (chrono.estActif) {
+            sf::Vector2f pos(voiture.getX(), voiture.getY());
+            float angle = voiture.getAngle();
+            trajectoireActuelle.push_back({pos, angle});
+        }
+        
 
         // === EMPÊCHER DE SORTIR DU CADRE ===
         float carWidth = carSprite.getGlobalBounds().width;
@@ -640,7 +682,13 @@ int main() {
                 // Passages suivants, on arrête le chrono actuel, on enregistre le temps
                 // et on redémarre immédiatement pour le tour suivant
                 chrono.arreter();
+
+                trajectoirePrecedente = trajectoireActuelle;
+                ghostIndex = 0;
+                trajectoireActuelle.clear();
+
                 chrono.demarrer();
+
             }
         }
         positionPrecedente = positionVoiture;
@@ -695,6 +743,16 @@ int main() {
         
         window.draw(carSprite);
         window.draw(directionIndicator);
+
+        if (!trajectoirePrecedente.empty() && ghostIndex < trajectoirePrecedente.size()) {
+            auto [pos, angle] = trajectoirePrecedente[ghostIndex];
+            carBlue.setPosition(pos);
+            carBlue.setRotation(angle + 90);  // même logique que carSprite
+            ghostIndex++;
+            window.draw(carBlue);
+        }
+        
+        
         window.draw(hudText);
         window.draw(ligneArrivee.ligne);
         window.draw(chronoDisplay);

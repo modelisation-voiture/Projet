@@ -99,6 +99,9 @@ public:
         double fy = -frottement * (voiture.getVy() / vitesse);
         return {fx, fy};
     }
+
+    void setCoefficient(double coeff) { coefficient = coeff; }
+
 };
 
 // === Force de Virage ===
@@ -209,5 +212,37 @@ public:
         return { -intensite_courante * (vx_rot / v_mod_rot), intensite_courante * (vy_rot / v_mod_rot)};
     }
 };
+
+class ForceCollision : public Force {
+    private:
+        const sf::Image& collisionMap;
+    
+    public:
+        ForceCollision(const sf::Image& image) : collisionMap(image) {}
+    
+        std::pair<double, double> calculer_force(const Voiture& voiture) const override {
+            sf::Vector2f futurePos(
+                voiture.getX() + voiture.getVx() * 0.01,
+                voiture.getY() + voiture.getVy() * 0.01
+            );
+    
+            int x = static_cast<int>(futurePos.x);
+            int y = static_cast<int>(futurePos.y);
+    
+            if (x < 0 || x >= static_cast<int>(collisionMap.getSize().x) ||
+                y < 0 || y >= static_cast<int>(collisionMap.getSize().y)) {
+                return { -voiture.getVx() * 200.0, -voiture.getVy() * 200.0 };  // Freinage brutal
+            }
+    
+            sf::Color pixel = collisionMap.getPixel(x, y);
+            if (pixel.r < 30 && pixel.g < 30 && pixel.b < 30) {
+                // Surface noire : appliquer une décélération brutale
+                return { -voiture.getVx() * 500.0, -voiture.getVy() * 500.0 };
+            }
+    
+            return {0.0, 0.0}; // Pas de collision
+        }
+    };
+    
 
 #endif // FORCE_HPP
