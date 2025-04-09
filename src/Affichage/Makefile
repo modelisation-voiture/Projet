@@ -12,7 +12,7 @@ else  # Linux (Ubuntu, etc.)
     LDFLAGS = -L ../../SFML-2.6.2/lib -lsfml-graphics -lsfml-window -lsfml-system -lsfml-audio
 endif
 
-SRC = main.cpp voiture.cpp map.cpp 
+SRC = main.cpp voiture.cpp map.cpp  pid_controller.cpp
 OBJ = $(SRC:.cpp=.o)
 TARGET = rc_simulation
 
