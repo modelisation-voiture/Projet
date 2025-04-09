@@ -12,20 +12,21 @@ Ce projet simule en 2D la trajectoire d’une voiture radiocommandée (RC) avec 
 - Système de collision simple (zones d’herbe/délimitation)
 - Structure modulaire orientée objet
 
-## Structure du projet
+### Structure du projet
 
-/assets # Textures utilisées (piste, voiture, herbe, etc.) 
+```bash
+/assets/           # Textures utilisées (piste, voiture, herbe, etc.)
+/circuits/         # Données éventuelles pour d'autres circuits
+/SFML-2.6.2/       # Dossier SFML (inclus dans le dépôt)
 
-/circuits # Données éventuelles pour d'autres circuits 
+/src/
+├── Affichage/     # Affichage SFML, map, textures
+├── Model/         # Forces physiques + dynamique de la voiture (voiture.cpp/hpp, force.hpp)
+├── PID/           # Contrôleur PID (vitesse, direction)
+├── Simulation/    # Fichier principal main.cpp + Makefile
 
-/SFML-2.6.2 # Dossier SFML (inclus dans le dépôt)
-
-/src 
-  ├── Affichage # Affichage SFML, map, textures 
-  ├── Model # Forces physiques + dynamique de la voiture 
-  ├── PID # Contrôleur PID (vitesse, direction) 
-  ├── Simulation # Fichier principal main.cpp + Makefile /tests # Éventuels tests unitaires
-
+/tests/            # Éventuels tests unitaires
+```
 
 ## Compilation
 
